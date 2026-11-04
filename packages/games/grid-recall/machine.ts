@@ -9,7 +9,7 @@
  * (`endsAt`). Each phase starts at the previous phase's `endsAt`, not at "now",
  * so a late frame never makes blinks drift.
  */
-import type { Cell } from "@cogniarena/game-core";
+import { attemptSeed, type Cell } from "@cogniarena/game-core";
 import {
   generateLevel,
   nextLevel,
@@ -17,8 +17,11 @@ import {
   type Answer,
   type GridRecallConfig,
   type GridRecallLevel,
+  type GridRecallResponses,
   type GridRecallResult,
 } from "./engine";
+
+export { attemptSeed };
 
 export const COUNTDOWN_MS = 3000;
 export const FEEDBACK_MS = 2500;
@@ -28,8 +31,10 @@ export type Phase =
   | { name: "countdown"; endsAt: number }
   | { name: "blink"; index: number; endsAt: number }
   | { name: "distractor"; index: number; shownAt: number; endsAt: number }
+  /** Tutorial only: "Correct / Not quite" shown briefly after each answer. null = timed out. */
+  | { name: "answered"; index: number; correct: boolean | null; endsAt: number }
   | { name: "recall"; shownAt: number; taps: Cell[] }
-  | { name: "feedback"; taps: Cell[]; result: GridRecallResult; endsAt: number }
+  | { name: "feedback"; taps: Cell[]; result: GridRecallResult; submission: LevelSubmission; endsAt: number }
   | { name: "sessionOver" };
 
 export type SessionEvent =
@@ -41,19 +46,31 @@ export type SessionEvent =
   | { type: "CLEAR" }
   | { type: "SUBMIT"; now: number }
   | { type: "PAUSE"; now: number }
-  | { type: "RESUME"; now: number };
+  | { type: "RESUME"; now: number }
+  /** Ends the session now (the Finish button in untimed modes). */
+  | { type: "FINISH" };
+
+/** What the browser sends the server for one level; the server rebuilds the level and scores it. */
+export interface LevelSubmission {
+  attempt: number;
+  level: number;
+  responses: GridRecallResponses;
+}
 
 export interface SessionOptions {
   seed: string;
   config?: GridRecallConfig;
   /** null = untimed (Practice, Tutorial). */
   durationMs: number | null;
+  /** Show right/wrong after each shape answer for this long (tutorial). 0 = off. */
+  answerFeedbackMs?: number;
 }
 
 export interface SessionState {
   seed: string;
   config: GridRecallConfig;
   durationMs: number | null;
+  answerFeedbackMs: number;
   /** Levels started so far, counting retries and restarts after a pause. */
   attempt: number;
   level: GridRecallLevel;
@@ -65,20 +82,12 @@ export interface SessionState {
   pausedAt: number | null;
 }
 
-/**
- * Seed for one level attempt. The attempt number is mixed in so a retry of the
- * same level is a fresh sequence, not a replay the player has already seen.
- * The server rebuilds levels with the same function.
- */
-export function attemptSeed(seed: string, attempt: number): string {
-  return `${seed}:attempt-${attempt}`;
-}
-
-export function createSession({ seed, config = {}, durationMs }: SessionOptions): SessionState {
+export function createSession({ seed, config = {}, durationMs, answerFeedbackMs = 0 }: SessionOptions): SessionState {
   return {
     seed,
     config,
     durationMs,
+    answerFeedbackMs,
     attempt: 0,
     level: generateLevel(attemptSeed(seed, 0), 1, config),
     answers: [],
@@ -108,6 +117,13 @@ function afterDistractor(state: SessionState, index: number, at: number): Phase 
   return index + 1 < state.level.sequence.length
     ? { name: "blink", index: index + 1, endsAt: at + state.level.timings.blinkMs }
     : { name: "recall", shownAt: at, taps: [] };
+}
+
+/** After an answer (or timeout): the tutorial's right/wrong message, or straight on. */
+function afterAnswer(state: SessionState, index: number, at: number, answer: Answer | null): Phase {
+  if (state.answerFeedbackMs <= 0) return afterDistractor(state, index, at);
+  const correct = answer === null ? null : answer === state.level.tasks[index]!.answer;
+  return { name: "answered", index, correct, endsAt: at + state.answerFeedbackMs };
 }
 
 /** Advances through every deadline that has passed by `now`. */
@@ -142,8 +158,11 @@ function tick(state: SessionState, now: number): SessionState {
           ...state,
           answers: [...state.answers, null],
           reactionTimesMs: [...state.reactionTimesMs, null],
-          phase: afterDistractor(state, phase.index, phase.endsAt),
+          phase: afterAnswer(state, phase.index, phase.endsAt, null),
         };
+      break;
+    case "answered":
+      if (now >= phase.endsAt) next = { ...state, phase: afterDistractor(state, phase.index, phase.endsAt) };
       break;
     case "feedback":
       if (now >= phase.endsAt) next = beginLevel(state, nextLevel(state.history), phase.endsAt);
@@ -157,6 +176,10 @@ function tick(state: SessionState, now: number): SessionState {
 
 export function reduce(state: SessionState, event: SessionEvent): SessionState {
   const { phase } = state;
+  if (event.type === "FINISH") {
+    if (phase.name === "idle" || phase.name === "sessionOver") return state;
+    return { ...state, pausedAt: null, phase: { name: "sessionOver" } };
+  }
   if (state.pausedAt !== null && event.type !== "RESUME") return state;
 
   switch (event.type) {
@@ -177,7 +200,7 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
         ...state,
         answers: [...state.answers, event.answer],
         reactionTimesMs: [...state.reactionTimesMs, Math.round(event.now - phase.shownAt)],
-        phase: afterDistractor(state, phase.index, event.now),
+        phase: afterAnswer(state, phase.index, event.now, event.answer),
       };
 
     case "TAP": {
@@ -197,16 +220,18 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
 
     case "SUBMIT": {
       if (phase.name !== "recall") return state;
-      const result = scoreLevel(state.level, {
+      const responses: GridRecallResponses = {
         taps: phase.taps,
         answers: state.answers,
         reactionTimesMs: state.reactionTimesMs,
-        recallTimeMs: event.now - phase.shownAt,
-      });
+        recallTimeMs: Math.round(event.now - phase.shownAt),
+      };
+      const result = scoreLevel(state.level, responses);
+      const submission: LevelSubmission = { attempt: state.attempt, level: state.level.level, responses };
       return {
         ...state,
         history: [...state.history, result],
-        phase: { name: "feedback", taps: phase.taps, result, endsAt: event.now + FEEDBACK_MS },
+        phase: { name: "feedback", taps: phase.taps, result, submission, endsAt: event.now + FEEDBACK_MS },
       };
     }
 

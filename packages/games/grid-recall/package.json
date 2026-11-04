@@ -14,7 +14,8 @@
   },
   "dependencies": {
     "@cogniarena/game-core": "workspace:*",
-    "zod": "^4.0.0"
+    "zod": "^4.0.0",
+    "@cogniarena/ui": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.8.0",

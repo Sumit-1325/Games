@@ -6,7 +6,9 @@ import type { GameEngine } from "@cogniarena/game-core";
 import {
   generateLevel,
   gridRecallConfigSchema,
+  gridRecallResponsesSchema,
   nextLevel,
+  plausibilityFlags,
   scoreLevel,
   type GridRecallConfig,
   type GridRecallLevel,
@@ -24,8 +26,10 @@ export const gridRecallEngine: GameEngine<GridRecallConfig, GridRecallLevel, Gri
   modes: ["assessment", "practice"],
   defaultDurationSec: 6 * 60,
   configSchema: gridRecallConfigSchema,
+  responsesSchema: gridRecallResponsesSchema,
   generateLevel,
   scoreLevel,
+  plausibility: plausibilityFlags,
   nextLevel,
   tutorial: gridRecallTutorial,
 };

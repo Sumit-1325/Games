@@ -108,3 +108,37 @@ describe("session machine", () => {
     expect(sum.totalScore).toBe(state.history[0]!.points);
   });
 });
+
+describe("tutorial feedback, finish and submissions", () => {
+  it("shows right/wrong after an answer when answerFeedbackMs is set", () => {
+    let s = reduce(createSession({ seed: "t", durationMs: null, answerFeedbackMs: 1500 }), { type: "START", now: 0 });
+    s = reduce(s, { type: "TICK", now: COUNTDOWN_MS + s.level.timings.blinkMs });
+    const right = s.level.tasks[0]!.answer;
+    s = reduce(s, { type: "ANSWER", answer: right, now: 5000 });
+    expect(s.phase).toEqual({ name: "answered", index: 0, correct: true, endsAt: 6500 });
+    s = reduce(s, { type: "TICK", now: 6500 });
+    expect(s.phase).toMatchObject({ name: "blink", index: 1 });
+  });
+
+  it("marks a timeout as correct: null in the tutorial", () => {
+    let s = reduce(createSession({ seed: "t", durationMs: null, answerFeedbackMs: 1500 }), { type: "START", now: 0 });
+    const { blinkMs, distractorMs } = s.level.timings;
+    s = reduce(s, { type: "TICK", now: COUNTDOWN_MS + blinkMs + distractorMs });
+    expect(s.phase).toMatchObject({ name: "answered", correct: null });
+  });
+
+  it("FINISH ends an untimed session, even while paused", () => {
+    let s = reduce(createSession({ seed: "f", durationMs: null }), { type: "START", now: 0 });
+    s = reduce(s, { type: "PAUSE", now: 10 });
+    s = reduce(s, { type: "FINISH" });
+    expect(s.phase.name).toBe("sessionOver");
+    expect(s.pausedAt).toBeNull();
+  });
+
+  it("feedback carries the submission the server needs", () => {
+    const { state } = playPerfectLevel(start(), 0);
+    if (state.phase.name !== "feedback") throw new Error("expected feedback");
+    expect(state.phase.submission).toMatchObject({ attempt: 0, level: 1 });
+    expect(state.phase.submission.responses.taps).toEqual(state.level.sequence);
+  });
+});

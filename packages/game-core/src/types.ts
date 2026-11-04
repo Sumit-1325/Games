@@ -41,8 +41,12 @@ export interface GameEngine<Config, Level, Responses, Result extends LevelResult
   modes: GameMode[];
   defaultDurationSec: number;
   configSchema: z.ZodType<Config>;
+  /** Validates a level submission coming from the browser. */
+  responsesSchema: z.ZodType<Responses>;
   generateLevel(seed: string, level: number, config: Config): Level;
   scoreLevel(level: Level, responses: Responses): Result;
+  /** Anti-cheat flags for a submission; empty = looks human. */
+  plausibility?(level: Level, responses: Responses): string[];
   nextLevel(history: Result[]): number;
   tutorial: TutorialStep[];
 }

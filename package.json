@@ -6,7 +6,10 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "test": "turbo run test",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "test:e2e": "pnpm --filter @cogniarena/web test:e2e",
+    "db:generate": "pnpm --filter @cogniarena/db db:generate",
+    "db:migrate": "pnpm --filter @cogniarena/db db:migrate"
   },
   "devDependencies": {
     "turbo": "^2.5.0",

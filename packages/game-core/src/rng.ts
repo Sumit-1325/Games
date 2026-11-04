@@ -72,3 +72,12 @@ export function randomSeed(): string {
   globalThis.crypto.getRandomValues(bytes);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
+
+/**
+ * Seed for one level attempt within a session. The attempt number is mixed in
+ * so a retry of the same level is a fresh puzzle, not a replay; the server
+ * rebuilds levels with the same function.
+ */
+export function attemptSeed(seed: string, attempt: number): string {
+  return `${seed}:attempt-${attempt}`;
+}

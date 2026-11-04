@@ -8,6 +8,7 @@
  * A level passes when the whole sequence is recalled in order AND at least 70%
  * of the shape questions are right.
  */
+import { z } from "zod";
 import type { Cell, LevelResult } from "@cogniarena/game-core";
 import type { Answer, GridRecallLevel } from "./generateLevel";
 
@@ -85,4 +86,30 @@ export function nextLevel(history: LevelResult[]): number {
     failsHere++;
   }
   return failsHere >= 2 ? Math.max(1, last.level - 1) : last.level;
+}
+
+const cellSchema = z.object({ row: z.number().int().min(0).max(20), col: z.number().int().min(0).max(20) });
+
+/** Server-side validation of a submitted level (bounds generous; scoring checks the rest). */
+export const gridRecallResponsesSchema = z.object({
+  taps: z.array(cellSchema).max(64),
+  answers: z.array(z.enum(["yes", "no"]).nullable()).max(64),
+  reactionTimesMs: z.array(z.number().min(0).max(60_000).nullable()).max(64),
+  recallTimeMs: z.number().min(0).max(30 * 60_000),
+});
+
+/** Answers faster than this are not humanly plausible. */
+export const MIN_HUMAN_REACTION_MS = 150;
+
+/**
+ * Anti-cheat flags for one submission (PLAN.md → "Scoring and anti-cheat").
+ * Flags are stored with the attempt; the session API decides what to reject.
+ */
+export function plausibilityFlags(level: GridRecallLevel, responses: GridRecallResponses): string[] {
+  const flags: string[] = [];
+  if (responses.answers.length !== level.tasks.length || responses.reactionTimesMs.length !== level.tasks.length)
+    flags.push("answer-count-mismatch");
+  if (responses.reactionTimesMs.some((t) => t !== null && t < MIN_HUMAN_REACTION_MS)) flags.push("too-fast-reaction");
+  if (responses.taps.some((c) => c.row >= level.rows || c.col >= level.cols)) flags.push("tap-out-of-grid");
+  return flags;
 }

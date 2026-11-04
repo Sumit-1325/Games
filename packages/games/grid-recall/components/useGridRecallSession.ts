@@ -46,5 +46,6 @@ export function useGridRecallSession(options: SessionOptions) {
     submit: useCallback(() => dispatch({ type: "SUBMIT", now: at() }), []),
     pause: useCallback(() => dispatch({ type: "PAUSE", now: at() }), []),
     resume: useCallback(() => dispatch({ type: "RESUME", now: at() }), []),
+    finish: useCallback(() => dispatch({ type: "FINISH" }), []),
   };
 }

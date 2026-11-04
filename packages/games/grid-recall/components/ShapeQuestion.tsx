@@ -7,7 +7,20 @@
  */
 import type { Shape, ShapeTask } from "../engine";
 
-function ShapeView({ shape, span, label, tutorialId }: { shape: Shape; span: number; label: string; tutorialId: string }) {
+export function ShapeView({
+  shape,
+  span,
+  label,
+  tutorialId,
+  rotateDeg = 0,
+}: {
+  shape: Shape;
+  span: number;
+  label: string;
+  tutorialId: string;
+  /** Tutorial demo: visibly turn the drawn shape (around its centre). */
+  rotateDeg?: number;
+}) {
   const h = Math.max(...shape.map((c) => c.row)) + 1;
   const w = Math.max(...shape.map((c) => c.col)) + 1;
   // Centre the shape in a span×span box so both sides use the same scale.
@@ -15,7 +28,13 @@ function ShapeView({ shape, span, label, tutorialId }: { shape: Shape; span: num
   const dy = (span - h) / 2;
   return (
     <figure data-tutorial={tutorialId} className="flex flex-1 flex-col items-center gap-2">
-      <svg viewBox={`-0.5 -0.5 ${span + 1} ${span + 1}`} className="aspect-square w-full max-w-56 text-indigo-500" role="img" aria-label={label}>
+      <svg
+        viewBox={`-0.5 -0.5 ${span + 1} ${span + 1}`}
+        className="aspect-square w-full max-w-56 text-indigo-500 motion-safe:transition-transform motion-safe:duration-1000"
+        style={rotateDeg ? { transform: `rotate(${rotateDeg}deg)` } : undefined}
+        role="img"
+        aria-label={label}
+      >
         {shape.map((c) => (
           <rect
             key={`${c.row}-${c.col}`}
@@ -55,7 +74,8 @@ function TimerRing({ fraction }: { fraction: number }) {
 
 export function ShapeQuestion({ task, shownAt, endsAt, now }: { task: ShapeTask; shownAt: number; endsAt: number; now: number }) {
   const span = Math.max(...[...task.left, ...task.right].flatMap((c) => [c.row + 1, c.col + 1]));
-  const fraction = Math.max(0, Math.min(1, (endsAt - now) / (endsAt - shownAt)));
+  // No ring when there's no time window (tutorial demos, the "answered" step).
+  const fraction = endsAt > shownAt ? Math.max(0, Math.min(1, (endsAt - now) / (endsAt - shownAt))) : null;
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-6 motion-safe:animate-fade-in">
       <div className="flex w-full items-center gap-4 sm:gap-8">
@@ -63,7 +83,7 @@ export function ShapeQuestion({ task, shownAt, endsAt, now }: { task: ShapeTask;
         <ShapeView shape={task.right} span={span} label="Is this the same, only rotated?" tutorialId="shape-right" />
       </div>
       <div className="flex items-center gap-3">
-        <TimerRing fraction={fraction} />
+        {fraction !== null && <TimerRing fraction={fraction} />}
         <p className="text-base font-medium sm:text-lg">Is the right shape the left one, just rotated?</p>
       </div>
     </div>

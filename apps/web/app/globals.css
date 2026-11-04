@@ -2,6 +2,7 @@
 
 /* Scan the game packages for class names too. */
 @source "../../../packages/games";
+@source "../../../packages/ui";
 
 /* Dark mode follows the `dark` class set by next-themes. */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -38,4 +39,12 @@
 
 body {
   @apply bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+}
+
+/* The app's own Reduce motion setting (Profile → Settings), on top of the OS one. */
+html[data-reduce-motion="true"] *,
+html[data-reduce-motion="true"] *::before,
+html[data-reduce-motion="true"] *::after {
+  animation: none !important;
+  transition: none !important;
 }

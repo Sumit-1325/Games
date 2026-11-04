@@ -11,7 +11,7 @@ export default function LandingPage() {
         <p className="text-lg text-zinc-600 dark:text-zinc-400">
           Practise memory and reasoning games inspired by the game-based assessments used by companies like Capgemini.
         </p>
-        <Link href="/games/grid-recall" className="rounded-xl bg-indigo-600 px-6 py-3 font-semibold text-white hover:bg-indigo-500">
+        <Link href="/dashboard" className="rounded-xl bg-indigo-600 px-6 py-3 font-semibold text-white hover:bg-indigo-500">
           Start practising
         </Link>
       </section>

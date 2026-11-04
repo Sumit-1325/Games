@@ -245,7 +245,7 @@ The server issues a seed for each session, the browser plays from it, and the se
 | `user`, `session`, `account`, `verification` | Created by Better Auth |
 | `games` | `id`, `slug`, `name`, `company_tags[]`, `version`, `is_active` |
 | `game_sessions` | `id`, `user_id`, `game_id`, `game_version`, `mode`, `config` (JSONB: rows, cols, duration), `seed`, `started_at`, `ended_at`, `final_level`, `total_score`, `status` |
-| `level_attempts` | `id`, `session_id`, `level`, `passed`, `points`, `recall_correct`, `distractor_correct`, `distractor_total`, `avg_rt_ms`, `duration_ms`, `responses` (JSONB) |
+| `level_attempts` | `id`, `session_id`, `attempt`, `level`, `passed`, `points`, `avg_rt_ms`, `result` (JSONB: the game's full LevelResult), `responses` (JSONB), `flags[]` |
 | `user_game_progress` | `user_id`, `game_id`, `tutorial_completed`, `best_score`, `best_level`, `sessions_played` |
 
 Game-specific detail lives in the JSONB columns, so a new game needs no schema change. Store `game_version` so old sessions stay valid after you rebalance difficulty.
@@ -258,7 +258,7 @@ Game-specific detail lives in the JSONB columns, so a new game needs no schema c
 
 ### Guests
 
-Guests play with a client-generated seed and results kept in localStorage. On sign-up, Better Auth's anonymous-to-real account linking (or a one-time upload of local sessions) moves their history into the database.
+Guests are signed in as anonymous users (Better Auth anonymous plugin) the first time they play, so their sessions are stored and scored like anyone else's. When they sign in with Google or email, `onLinkAccount` moves their sessions and progress to the real account.
 
 ## Auth
 
@@ -331,8 +331,40 @@ The gate after week 3 matters most: if 5–10 classmates can't finish a session 
 
 - [ ] Pick the product name and check the domain
 - [ ] Sketch the logo and the five core screens in Figma (landing, dashboard, lobby, play, results)
-- [ ] Set up the monorepo: Next.js, Tailwind, shadcn/ui, `next-themes`, Vitest (done except shadcn/ui, which comes with the first form-heavy screens)
+- [ ] Set up the monorepo: Next.js, Tailwind, shadcn/ui, `next-themes`, Vitest (done except shadcn/ui: the few forms so far are plain Tailwind)
 - [x] Write `generateLevel` and the chiral-shape generator with unit tests
 - [x] Build a bare play screen: grid, blink, one rotation question, recall, score
+
+**Weeks 2–3: playable game**
+
+- [x] Session state machine with pause/resume, Finish for untimed modes, per-attempt seeds
+- [x] Coach-mark tutorial (shared `TutorialPlayer` in `packages/ui`, steps as data) + guided practice round with right/wrong after each answer
+- [x] Assessment locked until the practice round is passed; Practice always open
+- [ ] Gate: 5–10 classmates finish a full session without help
+
+**Week 4: accounts and data**
+
+- [x] Drizzle schema + migrations (`packages/db`); PGlite locally, Postgres via `DATABASE_URL`
+- [x] Better Auth: Google (when configured), email magic link (Resend, or console in dev), guest play
+- [x] Session API with server-side re-scoring and plausibility checks; Results, History/Profile, Dashboard
+- [x] Guest → account linking keeps history; delete account and data
+
+**Week 5: polish and launch**
+
+- [x] Sound (off by default), Reduce motion setting, light/dark QA, keyboard play
+- [x] Privacy page, admin page (toggle games, usage), app icon
+- [x] Playwright end-to-end tests (installed Edge)
+- [ ] Deploy to Vercel + Neon (needs your accounts; steps in README.md)
+- [ ] Google OAuth client, Resend domain, Sentry / analytics (need your accounts)
+- [ ] Mobile QA on real phones
+
+### Decisions made while building
+
+- **Guests are real anonymous users** (Better Auth anonymous plugin), so their sessions go to the database like everyone else's and move to their account on sign-in. No localStorage history or upload step.
+- **`level_attempts` keeps game-specific numbers in JSONB** (`result`, `responses`) plus generic `level`, `passed`, `points`, `avg_rt_ms`, `flags`, so a new game needs no schema change. `game_sessions.flagged` marks sessions with implausible answers; they're excluded from bests.
+- **The server decides each level** from its own attempt history (`nextLevel`), rebuilds it from `seed:attempt-n`, and scores it. Submissions after the timer + 30 min (pause allowance) are rejected; answers under 150 ms are flagged.
+- **Tutorial rounds aren't saved as sessions**; passing one sets `tutorialCompleted`.
+- **Sound and Reduce motion are per-device settings** (localStorage); theme uses `next-themes`. `PATCH /api/me/progress` only stores `tutorialCompleted`.
+- **Route protection** is a cookie check in `proxy.ts` (Next 16's replacement for `middleware.ts`) plus a real session check in every page and API handler. Better Auth's built-in rate limiting covers sign-in; Upstash comes with the leaderboard.
 
 **Sources:** [PrepInsta: Capgemini game-based aptitude](https://prepinsta.com/capgemini-game-based-aptitude-test/) · [JobsNet: Capgemini selection process](https://jobsnet.in/capgemini-campus-recruitment-2020-interview-questions/) · [GeeksforGeeks: Capgemini interview experience](https://www.geeksforgeeks.org/?p=618162) · [Better Auth: Auth.js joins Better Auth](https://www.better-auth.com/blog/authjs-joins-better-auth). Reddit threads on the game didn't surface in search; the mechanics above come from candidate write-ups on these sites.

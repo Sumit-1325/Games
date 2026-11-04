@@ -6,4 +6,7 @@ dist
 .env*
 !.env.example
 next-env.d.ts
+.data
 *.tsbuildinfo
+test-results
+playwright-report
