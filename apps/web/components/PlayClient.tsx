@@ -2,8 +2,8 @@
 
 /**
  * Runs one Grid Recall session against the session API:
- *   1. ensure a session (guests are signed in anonymously),
- *   2. POST /api/sessions → server-issued seed,
+ *   1. POST /api/sessions → server-issued seed (on 401, sign in as a guest and retry),
+ *   2. play,
  *   3. POST each finished level → the server re-scores it,
  *   4. POST finish → link to the saved Results page.
  * If the API is unreachable the game still plays from a local seed (not saved).
@@ -12,7 +12,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { randomSeed } from "@cogniarena/game-core";
 import type { GridRecallConfig } from "@cogniarena/grid-recall";
-import { GridRecallPlay, type PlayMode } from "@cogniarena/grid-recall/components";
+import { GridRecallPlay, GridRecallWarmUp, type PlayMode } from "@cogniarena/grid-recall/components";
 import { api, ApiClientError } from "@/lib/api";
 import { ensureSession } from "@/lib/auth-client";
 import { useSettings } from "@/lib/settings";
@@ -27,6 +27,8 @@ export function PlayClient(props: { mode: Exclude<PlayMode, "tutorial">; config:
   const { sound } = useSettings();
   const [run, setRun] = useState<Run>({ status: "loading" });
   const [round, setRound] = useState(0);
+  // Assessment opens with the short demo (like the real test); the session is created meanwhile.
+  const [demoDone, setDemoDone] = useState(mode !== "assessment");
   const [saved, setSaved] = useState<"idle" | "saving" | "saved" | "failed">("idle");
   const pending = useRef<Promise<unknown>[]>([]);
 
@@ -36,9 +38,14 @@ export function PlayClient(props: { mode: Exclude<PlayMode, "tutorial">; config:
     setSaved("idle");
     pending.current = [];
     (async () => {
+      const start = () => api.startSession({ gameSlug: "grid-recall", mode, config, minutes });
       try {
-        await ensureSession();
-        const s = await api.startSession({ gameSlug: "grid-recall", mode, config, minutes });
+        // Ask for a session straight away; only sign in as a guest if the server says there's no user.
+        const s = await start().catch(async (e) => {
+          if (!(e instanceof ApiClientError && e.status === 401)) throw e;
+          await ensureSession();
+          return start();
+        });
         if (!cancelled) setRun({ status: "ready", sessionId: s.sessionId, seed: s.seed, config: s.config as GridRecallConfig, durationMs: s.durationMs });
       } catch (e) {
         if (cancelled) return;
@@ -77,16 +84,12 @@ export function PlayClient(props: { mode: Exclude<PlayMode, "tutorial">; config:
     }
   }, [sessionId]);
 
+  if (!demoDone) return <GridRecallWarmUp onStart={() => setDemoDone(true)} startLabel="Start assessment" />;
   if (run.status === "loading") return <p className="py-20 text-zinc-500">Starting session…</p>;
   if (run.status === "blocked") {
     return (
       <div className="flex max-w-md flex-col items-center gap-4 py-16 text-center">
         <p className="text-lg font-semibold">{run.message}</p>
-        {run.code === "tutorial-required" && (
-          <Link href="/games/grid-recall/tutorial" className="rounded-xl bg-indigo-600 px-6 py-3 font-semibold text-white hover:bg-indigo-500">
-            Take the tutorial
-          </Link>
-        )}
         <Link href="/games/grid-recall" className="text-sm text-zinc-500 hover:underline">
           Back to the lobby
         </Link>
@@ -117,6 +120,7 @@ export function PlayClient(props: { mode: Exclude<PlayMode, "tutorial">; config:
         config={run.config}
         durationMs={run.durationMs}
         sound={sound}
+        autoStart={mode === "assessment"}
         onLevelComplete={onLevelComplete}
         onSessionOver={onSessionOver}
         onPlayAgain={() => setRound((r) => r + 1)}

@@ -17,10 +17,15 @@ describe("generateLevel", () => {
     const l1 = generateLevel("s", 1);
     expect([l1.rows, l1.cols, l1.sequence.length]).toEqual([4, 4, 3]);
     const l6 = generateLevel("s", 6);
-    expect([l6.rows, l6.cols, l6.sequence.length, l6.timings.blinkMs]).toEqual([6, 6, 6, 800]);
+    expect([l6.rows, l6.cols, l6.sequence.length, l6.timings.blinkMs]).toEqual([6, 6, 8, 800]);
     const l9 = generateLevel("s", 9);
-    expect(l9.sequence.length).toBe(9);
+    expect(l9.sequence.length).toBe(10);
     expect(l9.tasks[0]!.left).toHaveLength(7);
+  });
+
+  it("adds one ball every level, 3 up to 10, then stays at 10", () => {
+    const counts = Array.from({ length: 12 }, (_, i) => generateLevel("s", i + 1).sequence.length);
+    expect(counts).toEqual([3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 10]);
   });
 
   it("uses distinct cells inside the grid, one task per ball", () => {

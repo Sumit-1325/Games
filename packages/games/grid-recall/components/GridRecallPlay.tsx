@@ -29,6 +29,8 @@ export interface GridRecallPlayProps {
   /** Tutorial: show right/wrong after each answer for this long. */
   answerFeedbackMs?: number;
   sound?: boolean;
+  /** Skip the Start button and go straight into the countdown (used after the demo). */
+  autoStart?: boolean;
   onPlayAgain: () => void;
   onLevelComplete?: (submission: LevelSubmission, result: GridRecallResult) => void;
   onSessionOver?: (state: SessionState) => void;
@@ -172,6 +174,14 @@ export function GridRecallPlay(props: GridRecallPlayProps) {
   const { state, now } = game;
   const { phase, level } = state;
   const paused = state.pausedAt !== null;
+
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (props.autoStart && !autoStarted.current && phase.name === "idle") {
+      autoStarted.current = true;
+      game.start();
+    }
+  });
 
   // Report each scored level exactly once, and the end of the session.
   const reported = useRef(-1);

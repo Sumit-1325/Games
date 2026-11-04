@@ -91,8 +91,7 @@ export async function startSession(db: Db, input: StartInput) {
     if (!parsed.success) throw new ApiError(400, "invalid-config");
     config = parsed.data as Record<string, unknown>;
   } else {
-    const progress = await getProgress(db, input.userId, input.gameSlug);
-    if (!progress.tutorialCompleted) throw new ApiError(403, "tutorial-required", "Pass the tutorial practice round first.");
+    // No tutorial gate: like the real test, the play screen opens with a short demo.
     const minutes = ASSESSMENT_MINUTES.includes(input.minutes as 6 | 9) ? input.minutes! : engine.defaultDurationSec / 60;
     durationMs = minutes * 60_000;
   }

@@ -72,7 +72,6 @@ export default async function DashboardPage() {
                       </div>
                     ))}
                   </dl>
-                  {!stats?.tutorialCompleted && <p className="text-xs text-indigo-600 dark:text-indigo-400">Start with the tutorial →</p>}
                 </Link>
               ))}
             {COMING_SOON.filter((c) => c.tag === tag).map((c) => (

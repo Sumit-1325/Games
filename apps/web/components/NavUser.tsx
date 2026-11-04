@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/server/current-user";
 /** Right side of the nav: Dashboard, plus Profile (signed in / guest) or Sign in. */
 export async function NavUser() {
   const user = await getCurrentUser();
-  const link = "rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800";
+  const link = "whitespace-nowrap rounded-lg px-2 py-2 text-sm font-medium sm:px-3 sm:text-base text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800";
   return (
     <>
       <Link href="/dashboard" className={link}>

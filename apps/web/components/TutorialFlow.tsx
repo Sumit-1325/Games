@@ -4,7 +4,7 @@
  * Tutorial (PLAN.md → "Tutorial and onboarding"):
  *   1. coach-mark walkthrough (shared TutorialPlayer + Grid Recall's demo stage),
  *   2. practice round: 3×3, 2 balls, no timer, right/wrong after each answer,
- *   3. pass it once → tutorialCompleted is saved and Assessment unlocks.
+ *   3. pass it once → tutorialCompleted is saved; it no longer locks anything.
  * Tutorial rounds are not saved as sessions.
  */
 import Link from "next/link";
@@ -94,7 +94,7 @@ export function TutorialFlow({ alreadyCompleted }: { alreadyCompleted: boolean }
       </p>
       <h1 className="text-2xl font-bold">You&apos;re ready</h1>
       <p className="text-zinc-600 dark:text-zinc-400">
-        {alreadyCompleted ? "Practice round passed again." : "Assessment mode is now unlocked."}
+        {alreadyCompleted ? "Practice round passed again." : "You know how the test works."}
         {saveError && " (We couldn't save this, so you may be asked to repeat it.)"}
       </p>
       <div className="flex gap-3">

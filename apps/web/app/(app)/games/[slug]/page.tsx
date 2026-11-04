@@ -1,7 +1,8 @@
 /**
- * Game lobby: description, skills, mode picker and grid size. A plain GET form
- * to ./play, so it works without client JavaScript. Assessment stays locked
- * until the tutorial practice round is passed; Practice is always open.
+ * Game lobby. Like the real test there is one main action, Start assessment:
+ * the play screen opens with a short automatic demo, then Start begins the timer.
+ * Practice (untimed, any grid size) is the second option. Both are plain GET
+ * forms to ./play, so they work without client JavaScript.
  */
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -12,6 +13,7 @@ import { getProgress } from "@/lib/server/sessions";
 
 const sizes = [3, 4, 5, 6, 7, 8];
 const field = "rounded-lg bg-zinc-100 px-3 py-2 dark:bg-zinc-800";
+const card = "flex flex-col gap-4 rounded-2xl bg-white p-6 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800";
 
 export default async function LobbyPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -20,7 +22,6 @@ export default async function LobbyPage({ params }: { params: Promise<{ slug: st
   const { engine, description } = game;
   const user = await getCurrentUser();
   const progress = user ? await getProgress(getDb(), user.id, slug) : null;
-  const unlocked = !!progress?.tutorialCompleted;
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-8 py-8">
@@ -41,47 +42,35 @@ export default async function LobbyPage({ params }: { params: Promise<{ slug: st
         )}
       </header>
 
-      {!unlocked && (
-        <div className="flex flex-col items-start gap-3 rounded-2xl bg-indigo-50 p-5 ring-1 ring-indigo-200 dark:bg-indigo-950/40 dark:ring-indigo-900">
-          <p className="font-semibold">New here? Start with the 60-second tutorial.</p>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">Pass its practice round once to unlock Assessment mode.</p>
-          <Link href={`/games/${slug}/tutorial`} className="rounded-xl bg-indigo-600 px-5 py-2.5 font-semibold text-white hover:bg-indigo-500">
-            Start tutorial
-          </Link>
+      <form action={`/games/${slug}/play`} className={card}>
+        <input type="hidden" name="mode" value="assessment" />
+        <div>
+          <h2 className="text-lg font-semibold">Assessment</h2>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            Starts with a quick demo: a ball blinks and you answer one shape question. Then press Start and the timer begins. Levels get harder as you pass them.
+          </p>
         </div>
-      )}
+        <label className="flex flex-col gap-1 text-sm">
+          Session length
+          <select name="minutes" defaultValue="6" className={field}>
+            <option value="6">6 min</option>
+            <option value="9">9 min</option>
+          </select>
+        </label>
+        <button type="submit" className="rounded-xl bg-indigo-600 px-6 py-3 text-lg font-semibold text-white hover:bg-indigo-500">
+          Start assessment
+        </button>
+      </form>
 
-      <form action={`/games/${slug}/play`} className="flex flex-col gap-6 rounded-2xl bg-white p-6 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
-        <fieldset className="flex flex-col gap-3">
-          <legend className="mb-2 font-semibold">Mode</legend>
-          <label className={`flex items-start gap-3 ${unlocked ? "" : "opacity-50"}`}>
-            <input type="radio" name="mode" value="assessment" defaultChecked={unlocked} disabled={!unlocked} className="mt-1 accent-indigo-600" />
-            <span>
-              <span className="font-medium">Assessment {!unlocked && "🔒"}</span>
-              <span className="block text-sm text-zinc-500 dark:text-zinc-400">
-                {unlocked ? "Timed, levels get harder as you pass them. Counts for your stats." : "Finish the tutorial to unlock."}
-              </span>
-            </span>
-          </label>
-          <label className="flex items-start gap-3">
-            <input type="radio" name="mode" value="practice" defaultChecked={!unlocked} className="mt-1 accent-indigo-600" />
-            <span>
-              <span className="font-medium">Practice</span>
-              <span className="block text-sm text-zinc-500 dark:text-zinc-400">No timer, and you pick the grid size. Saved to history, not ranked.</span>
-            </span>
-          </label>
-        </fieldset>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <form action={`/games/${slug}/play`} className={card}>
+        <input type="hidden" name="mode" value="practice" />
+        <div>
+          <h2 className="font-semibold">Practice</h2>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">No timer, and you pick the grid size. Saved to history, not ranked.</p>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
           <label className="flex flex-col gap-1 text-sm">
-            Session (assessment)
-            <select name="minutes" defaultValue="6" className={field}>
-              <option value="6">6 min</option>
-              <option value="9">9 min</option>
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            Rows (practice)
+            Rows
             <select name="rows" defaultValue="5" className={field}>
               {sizes.map((n) => (
                 <option key={n} value={n}>
@@ -91,7 +80,7 @@ export default async function LobbyPage({ params }: { params: Promise<{ slug: st
             </select>
           </label>
           <label className="flex flex-col gap-1 text-sm">
-            Columns (practice)
+            Columns
             <select name="cols" defaultValue="5" className={field}>
               {sizes.map((n) => (
                 <option key={n} value={n}>
@@ -101,10 +90,9 @@ export default async function LobbyPage({ params }: { params: Promise<{ slug: st
             </select>
           </label>
         </div>
-        <p className="-mt-3 text-xs text-zinc-500">On phones, grids above 6×6 get small: 6×6 or less plays best.</p>
-
-        <button type="submit" className="rounded-xl bg-indigo-600 px-6 py-3 font-semibold text-white hover:bg-indigo-500">
-          Start
+        <p className="-mt-2 text-xs text-zinc-500">On phones, grids above 6×6 get small: 6×6 or less plays best.</p>
+        <button type="submit" className="rounded-xl bg-zinc-200 px-6 py-3 font-semibold hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700">
+          Start practice
         </button>
       </form>
 
@@ -113,7 +101,7 @@ export default async function LobbyPage({ params }: { params: Promise<{ slug: st
           ← Dashboard
         </Link>
         <Link href={`/games/${slug}/tutorial`} className="text-indigo-600 hover:underline dark:text-indigo-400">
-          How to play
+          Full walkthrough: how to play
         </Link>
       </div>
     </div>

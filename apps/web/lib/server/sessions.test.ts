@@ -45,11 +45,11 @@ beforeEach(async () => {
 });
 
 describe("session API service", () => {
-  it("assessment needs the tutorial first", async () => {
-    await rejects(startSession(db, { userId: "u1", gameSlug: "grid-recall", mode: "assessment" }), "tutorial-required");
-    await setTutorialCompleted(db, "u1", "grid-recall");
+  it("assessment starts straight away, with the chosen length", async () => {
     const s = await startSession(db, { userId: "u1", gameSlug: "grid-recall", mode: "assessment", minutes: 9 });
     expect(s.durationMs).toBe(9 * 60_000);
+    const d = await startSession(db, { userId: "u1", gameSlug: "grid-recall", mode: "assessment" });
+    expect(d.durationMs).toBe(6 * 60_000);
   });
 
   it("practice validates the custom grid", async () => {

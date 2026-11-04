@@ -22,21 +22,25 @@ export interface LevelSettings {
 const ONE_ANGLE: QuarterTurns[] = [1];
 const ALL_ANGLES: QuarterTurns[] = [1, 2, 3];
 
+/** Every level adds exactly one ball: level n has n + 2 balls (3, 4, 5, … up to 10). */
 const TABLE: LevelSettings[] = [
   { rows: 4, cols: 4, balls: 3, blinkMs: 1000, distractorMs: 5000, shapeSize: 4, angles: ONE_ANGLE, fixedL: true },
   { rows: 4, cols: 4, balls: 4, blinkMs: 1000, distractorMs: 5000, shapeSize: 4, angles: ONE_ANGLE, fixedL: true },
-  { rows: 5, cols: 5, balls: 4, blinkMs: 900, distractorMs: 4500, shapeSize: 5, angles: ONE_ANGLE, fixedL: false },
-  { rows: 5, cols: 5, balls: 5, blinkMs: 900, distractorMs: 4000, shapeSize: 5, angles: ALL_ANGLES, fixedL: false },
-  { rows: 5, cols: 5, balls: 6, blinkMs: 800, distractorMs: 4000, shapeSize: 6, angles: ALL_ANGLES, fixedL: false },
-  { rows: 6, cols: 6, balls: 6, blinkMs: 800, distractorMs: 3500, shapeSize: 6, angles: ALL_ANGLES, fixedL: false },
+  { rows: 4, cols: 4, balls: 5, blinkMs: 900, distractorMs: 4500, shapeSize: 5, angles: ONE_ANGLE, fixedL: false },
+  { rows: 5, cols: 5, balls: 6, blinkMs: 900, distractorMs: 4000, shapeSize: 5, angles: ALL_ANGLES, fixedL: false },
+  { rows: 5, cols: 5, balls: 7, blinkMs: 800, distractorMs: 4000, shapeSize: 6, angles: ALL_ANGLES, fixedL: false },
+  { rows: 6, cols: 6, balls: 8, blinkMs: 800, distractorMs: 3500, shapeSize: 6, angles: ALL_ANGLES, fixedL: false },
 ];
 
-/** Level 7+: 6×6, one more ball per level, 7-cell shapes. */
+/** The ball count stops growing here: level 8 reaches 10 balls, later levels keep 10. */
+export const MAX_LEVEL_BALLS = 10;
+
+/** Level 7+: 6×6, one more ball per level up to MAX_LEVEL_BALLS, 7-cell shapes. */
 function beyondTable(level: number): LevelSettings {
   return {
     rows: 6,
     cols: 6,
-    balls: 6 + (level - 6),
+    balls: Math.min(level + 2, MAX_LEVEL_BALLS),
     blinkMs: 700,
     distractorMs: 3000,
     shapeSize: 7,

@@ -22,7 +22,7 @@ export const gridRecallEngine: GameEngine<GridRecallConfig, GridRecallLevel, Gri
   title: "Grid Recall",
   companyTags: ["capgemini"],
   skills: ["working memory", "spatial rotation"],
-  version: 1,
+  version: 2,
   modes: ["assessment", "practice"],
   defaultDurationSec: 6 * 60,
   configSchema: gridRecallConfigSchema,

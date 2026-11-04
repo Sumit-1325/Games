@@ -16,6 +16,14 @@
   --animate-shake: shake 320ms ease-in-out;
   --animate-pulse-once: pulse-once 420ms ease-out;
   --animate-fade-in: fade-in 180ms ease-out;
+  /* Landing preview: each ball shows for ~1s, one after another (delays set inline). */
+  --animate-seq-blink: seq-blink 3.6s ease-out infinite both;
+
+  @keyframes seq-blink {
+    0% { opacity: 0; transform: scale(0.4); }
+    6%, 26% { opacity: 1; transform: scale(1); }
+    33%, 100% { opacity: 0; transform: scale(0.4); }
+  }
 
   @keyframes ball-in {
     from { transform: scale(0.3); opacity: 0; }

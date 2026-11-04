@@ -63,11 +63,14 @@ Pass a level when the whole sequence is recalled in the right order **and** at l
 | --- | --- | --- | --- | --- | --- |
 | 1 | 4×4 | 3 | 1000 | 5 | 4-cell L, 90° steps |
 | 2 | 4×4 | 4 | 1000 | 5 | 4-cell L, 90° steps |
-| 3 | 5×5 | 4 | 900 | 4.5 | 5-cell shapes |
-| 4 | 5×5 | 5 | 900 | 4 | 5-cell, any of 3 angles |
-| 5 | 5×5 | 6 | 800 | 4 | 6-cell, near-symmetric |
-| 6 | 6×6 | 6 | 800 | 3.5 | 6-cell, near-symmetric |
-| 7+ | 6×6 | +1 per level | 700 | 3 | 7-cell, any of 3 angles (90° steps; 45° dropped because a 45° turn takes a polyomino off the grid) |
+| 3 | 4×4 | 5 | 900 | 4.5 | 5-cell shapes |
+| 4 | 5×5 | 6 | 900 | 4 | 5-cell, any of 3 angles |
+| 5 | 5×5 | 7 | 800 | 4 | 6-cell, near-symmetric |
+| 6 | 6×6 | 8 | 800 | 3.5 | 6-cell, near-symmetric |
+| 7 | 6×6 | 9 | 700 | 3 | 7-cell, any of 3 angles (90° steps; 45° dropped because a 45° turn takes a polyomino off the grid) |
+| 8+ | 6×6 | 10 (max) | 700 | 3 | 7-cell, any of 3 angles |
+
+Every level adds exactly one ball, from 3 up to a maximum of 10 (changed after the owner's review: the real test grows by one ball per level). Changing the table bumps the game `version` (now 2).
 
 These numbers are a starting point; tune them after play-testing with 5–10 classmates.
 
@@ -89,7 +92,7 @@ Per level: `level × 10 × (correct recall positions ÷ balls)` plus `2 × corre
 
 ## Tutorial and onboarding
 
-Every first-time player goes through a 60-second guided tutorial and a practice round before the real game unlocks; returning players can skip it, and "How to play" stays one click away.
+Like the real test, the lobby's main action is **Start assessment**, and the play screen opens with a short automatic demo: one ball blinks; the app answers two examples itself while the player watches (a Yes: the right shape visibly turns back and lines up; a No: a mirror image turns back but can't line up); then the player answers one question on their own and sees whether it was right; then a **Start** button appears and pressing it starts the timer. The full guided tutorial below stays available as "How to play", and is not required.
 
 **Guided walkthrough (coach marks).** The screen dims except the highlighted element; an animated arrow and a short caption point at it; Next / Back / Skip at the bottom.
 
@@ -104,7 +107,7 @@ Every first-time player goes through a 60-second guided tutorial and a practice 
 **Rules**
 
 - Store `tutorialCompleted` per game per user (localStorage for guests, database once signed in).
-- The practice round must be passed once before Assessment mode unlocks; Practice mode is always open.
+- Nothing is locked: Assessment and Practice are always open. (Changed from "pass the practice round to unlock Assessment" to match the real test's flow.)
 - Respect the OS "reduce motion" setting: swap animations for static arrows and fades.
 - Build tutorial steps as data (target element, caption, demo action) so every future game reuses the same tutorial player.
 
@@ -323,7 +326,7 @@ flowchart LR
     P1 --> P2 --> G --> P3 --> P4
 ```
 
-Next (v2): Digit and Switch games, leaderboard, company mock test.
+Next (v2): Digit and Switch games, leaderboard, company mock test. When more games go live, turn the landing-page hero preview into a slider that cycles through each game's preview.
 
 The gate after week 3 matters most: if 5–10 classmates can't finish a session without help, fix the tutorial before adding accounts.
 
@@ -339,7 +342,7 @@ The gate after week 3 matters most: if 5–10 classmates can't finish a session 
 
 - [x] Session state machine with pause/resume, Finish for untimed modes, per-attempt seeds
 - [x] Coach-mark tutorial (shared `TutorialPlayer` in `packages/ui`, steps as data) + guided practice round with right/wrong after each answer
-- [x] Assessment locked until the practice round is passed; Practice always open
+- [x] ~~Assessment locked until the practice round is passed~~ → replaced by the real-test flow: Start assessment → automatic demo (blink + one shape question) → Start → timer
 - [ ] Gate: 5–10 classmates finish a full session without help
 
 **Week 4: accounts and data**
@@ -363,7 +366,8 @@ The gate after week 3 matters most: if 5–10 classmates can't finish a session 
 - **Guests are real anonymous users** (Better Auth anonymous plugin), so their sessions go to the database like everyone else's and move to their account on sign-in. No localStorage history or upload step.
 - **`level_attempts` keeps game-specific numbers in JSONB** (`result`, `responses`) plus generic `level`, `passed`, `points`, `avg_rt_ms`, `flags`, so a new game needs no schema change. `game_sessions.flagged` marks sessions with implausible answers; they're excluded from bests.
 - **The server decides each level** from its own attempt history (`nextLevel`), rebuilds it from `seed:attempt-n`, and scores it. Submissions after the timer + 30 min (pause allowance) are rejected; answers under 150 ms are flagged.
-- **Tutorial rounds aren't saved as sessions**; passing one sets `tutorialCompleted`.
+- **Tutorial rounds aren't saved as sessions**; passing one sets `tutorialCompleted`, which no longer locks anything.
+- **Assessment opens with an automatic demo** (`GridRecallWarmUp`), matching the real test. The server session is created while the demo plays, so the game starts without a loading wait.
 - **Sound and Reduce motion are per-device settings** (localStorage); theme uses `next-themes`. `PATCH /api/me/progress` only stores `tutorialCompleted`.
 - **Route protection** is a cookie check in `proxy.ts` (Next 16's replacement for `middleware.ts`) plus a real session check in every page and API handler. Better Auth's built-in rate limiting covers sign-in; Upstash comes with the leaderboard.
 

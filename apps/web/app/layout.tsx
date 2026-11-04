@@ -23,22 +23,31 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="flex min-h-dvh flex-col font-sans">
         <ThemeProvider>
           <SettingsEffects />
-          <nav className="mx-auto flex w-full max-w-5xl items-center justify-between gap-2 px-4 py-3">
-            <Link href="/" className="flex items-center gap-2 font-semibold text-indigo-600 dark:text-indigo-400">
-              <Logo className="size-7" />
-              <span className="text-zinc-900 dark:text-zinc-100">CogniArena</span>
-            </Link>
-            <div className="flex items-center gap-1">
-              <NavUser />
-              <ThemeToggle />
+          <header className="sticky top-0 z-40 border-b border-zinc-200/70 bg-zinc-50/80 backdrop-blur-md dark:border-zinc-800/70 dark:bg-zinc-950/80">
+            <nav className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 px-4 py-3 sm:px-6">
+              <Link href="/" className="flex items-center gap-2.5 text-lg font-bold text-indigo-600 dark:text-indigo-400">
+                <Logo className="size-8" />
+                <span className="hidden text-zinc-900 min-[360px]:inline dark:text-zinc-100">CogniArena</span>
+              </Link>
+              <div className="flex items-center gap-1">
+                <NavUser />
+                <ThemeToggle />
+              </div>
+            </nav>
+          </header>
+          <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-8 sm:px-6">{children}</main>
+          <footer className="border-t border-zinc-200 dark:border-zinc-800">
+            <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-8 text-sm text-zinc-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 dark:text-zinc-400">
+              <p>Independent practice tool, not affiliated with any company or assessment provider.</p>
+              <div className="flex gap-5">
+                <Link href="/dashboard" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+                  Dashboard
+                </Link>
+                <Link href="/privacy" className="hover:text-zinc-900 dark:hover:text-zinc-100">
+                  Privacy
+                </Link>
+              </div>
             </div>
-          </nav>
-          <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 pb-8">{children}</main>
-          <footer className="mx-auto w-full max-w-5xl px-4 py-6 text-xs text-zinc-500">
-            Independent practice tool, not affiliated with any company or assessment provider. ·{" "}
-            <Link href="/privacy" className="hover:underline">
-              Privacy
-            </Link>
           </footer>
         </ThemeProvider>
       </body>

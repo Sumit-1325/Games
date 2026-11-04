@@ -1,6 +1,6 @@
 /**
- * A new guest learns Grid Recall, passes the practice round, unlocks
- * Assessment, plays a Practice session and opens the saved Results.
+ * A new guest starts an assessment (automatic demo, then the timed game), and
+ * separately takes the tutorial, plays a Practice session and opens the saved Results.
  *
  * The bot plays like a person would: it watches which cell lights up, works out
  * each shape answer from the drawn shapes, and taps the cells back in order.
@@ -68,28 +68,42 @@ async function playLevel(page: Page) {
   throw new Error("level did not reach recall");
 }
 
-test("guest: tutorial → practice round → assessment unlocked → practice session → results", async ({ page }) => {
+test("guest: Start assessment → automatic demo → Start → timed level", async ({ page }) => {
   await page.goto("/games/grid-recall");
-  await expect(page.getByRole("radio", { name: /Assessment/ })).toBeDisabled();
-  await page.getByRole("link", { name: "Start tutorial" }).click();
+  await page.getByRole("button", { name: "Start assessment" }).click();
 
-  // Coach-mark walkthrough: 10 steps.
-  for (let i = 0; i < 9; i++) await page.getByRole("button", { name: "Next" }).click();
+  // Demo: a ball blinks; the app answers a Yes example and a No example; then the player tries one.
+  await expect(page.getByText("Demo")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start assessment" })).toHaveCount(0);
+  await expect(page.getByText("Same shape, only rotated → answer Yes.")).toBeVisible({ timeout: 15_000 });
+  if (process.env.SCREENSHOTS) await page.screenshot({ path: `${process.env.SCREENSHOTS}/demo-yes.png` });
+  await page.getByRole("button", { name: "Next example" }).click();
+  await expect(page.getByText("Mirror image → answer No.")).toBeVisible({ timeout: 10_000 });
+  if (process.env.SCREENSHOTS) await page.screenshot({ path: `${process.env.SCREENSHOTS}/demo-no.png` });
+  await page.getByRole("button", { name: "Now you try" }).click();
+  await page.getByRole("button", { name: /^Yes/ }).click();
+  await expect(page.getByRole("status")).toContainText(/Correct!|Not quite/);
+  await page.getByRole("button", { name: "Start assessment" }).click();
+
+  // The timed session starts straight away (no second Start button).
+  await expect(page.getByLabel("time left")).toHaveText(/^\d:\d\d$/, { timeout: 15_000 });
+  await playLevel(page);
+  await expect(page.getByRole("status")).toContainText("Level passed");
+});
+
+test("guest: tutorial walkthrough → practice round → practice session → saved results", async ({ page }) => {
+  await page.goto("/games/grid-recall/tutorial");
+  for (let i = 0; i < 9; i++) await page.getByRole("button", { name: "Next", exact: true }).click();
   await page.getByRole("button", { name: "Start practice" }).click();
-
-  // Guided practice round: 3×3, 2 balls, right/wrong after each answer.
   await page.getByRole("button", { name: "Start practice round" }).click();
   await expect(await playLevel(page)).toBe(2);
   await expect(page.getByRole("heading", { name: "You're ready" })).toBeVisible({ timeout: 10_000 });
 
-  // Lobby: Assessment is now unlocked. Start a 3×3 Practice session.
+  // Lobby → 3×3 Practice session.
   await page.getByRole("link", { name: "Lobby" }).click();
-  await expect(page.getByRole("radio", { name: /Assessment/ })).toBeEnabled();
-  await page.getByRole("radio", { name: /Practice/ }).check();
-  await page.getByLabel("Rows (practice)").selectOption("3");
-  await page.getByLabel("Columns (practice)").selectOption("3");
-  await page.getByRole("button", { name: "Start", exact: true }).click();
-
+  await page.getByLabel("Rows").selectOption("3");
+  await page.getByLabel("Columns").selectOption("3");
+  await page.getByRole("button", { name: "Start practice" }).click();
   await page.getByRole("button", { name: "Start practice" }).click();
   await playLevel(page);
   await expect(page.getByRole("status")).toContainText("Level passed");
@@ -97,12 +111,12 @@ test("guest: tutorial → practice round → assessment unlocked → practice se
 
   // Saved, server-scored results.
   await page.getByRole("link", { name: /See saved results/ }).click();
-  await expect(page.getByRole("heading", { name: "Results" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Results" })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole("cell", { name: "Pass" })).toBeVisible();
 
   // History shows the session.
   await page.getByRole("link", { name: "History" }).first().click();
-  await expect(page.getByRole("link", { name: "View" })).toHaveCount(1);
+  await expect(page.getByRole("link", { name: "View" })).toHaveCount(1, { timeout: 20_000 });
 });
 
 test("signed-out visitors are sent to sign-in for private pages", async ({ page }) => {

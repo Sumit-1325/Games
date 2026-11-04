@@ -18,9 +18,9 @@ for (const scheme of ["light", "dark"] as const) {
     await shot(page, `${scheme}-dashboard`);
 
     await page.goto("/games/grid-recall/tutorial");
-    await page.getByRole("button", { name: "Next" }).click();
-    await page.getByRole("button", { name: "Next" }).click();
-    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await page.getByRole("button", { name: "Next", exact: true }).click();
     await page.waitForTimeout(500);
     await shot(page, `${scheme}-tutorial-shape`);
 
