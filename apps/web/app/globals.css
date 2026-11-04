@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+/* Scan the game packages for class names too. */
+@source "../../../packages/games";
+
+/* Dark mode follows the `dark` class set by next-themes. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* Game motion (PLAN.md → "Look and feel"). Components use these only behind
+     `motion-safe:`, so the OS "reduce motion" setting turns them all off. */
+  --animate-ball-in: ball-in 150ms ease-out;
+  --animate-shake: shake 320ms ease-in-out;
+  --animate-pulse-once: pulse-once 420ms ease-out;
+  --animate-fade-in: fade-in 180ms ease-out;
+
+  @keyframes ball-in {
+    from { transform: scale(0.3); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+  @keyframes pulse-once {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.06); }
+    100% { transform: scale(1); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+
+body {
+  @apply bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+}
