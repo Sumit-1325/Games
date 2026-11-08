@@ -5,12 +5,6 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@cogniarena/game-core", "@cogniarena/grid-recall", "@cogniarena/missing-digits", "@cogniarena/db", "@cogniarena/ui"],
   // PGlite loads its WebAssembly files from node_modules at runtime.
   serverExternalPackages: ["@electric-sql/pglite"],
-  webpack: (config, { isServer }) => {
-    if (isServer) {
-      config.externals = [...(config.externals || []), "@electric-sql/pglite"];
-    }
-    return config;
-  },
 };
 
 export default nextConfig;
