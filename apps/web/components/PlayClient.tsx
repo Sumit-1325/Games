@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Runs one Grid Recall session against the session API:
+ * Runs one session of any game against the session API:
  *   1. POST /api/sessions → server-issued seed (on 401, sign in as a guest and retry),
  *   2. play,
  *   3. POST each finished level → the server re-scores it,
@@ -11,19 +11,21 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { randomSeed } from "@cogniarena/game-core";
-import type { GridRecallConfig } from "@cogniarena/grid-recall";
-import { GridRecallPlay, GridRecallWarmUp, type PlayMode } from "@cogniarena/grid-recall/components";
+import { gameClients } from "@/components/gameClients";
 import { api, ApiClientError } from "@/lib/api";
 import { ensureSession } from "@/lib/auth-client";
 import { useSettings } from "@/lib/settings";
 
+type Config = Record<string, unknown>;
+
 type Run =
   | { status: "loading" }
-  | { status: "ready"; sessionId: string | null; seed: string; config: GridRecallConfig; durationMs: number | null }
+  | { status: "ready"; sessionId: string | null; seed: string; config: Config; durationMs: number | null }
   | { status: "blocked"; code: string; message: string };
 
-export function PlayClient(props: { mode: Exclude<PlayMode, "tutorial">; config: GridRecallConfig; minutes: number }) {
-  const { mode, config, minutes } = props;
+export function PlayClient(props: { slug: string; mode: "assessment" | "practice"; config: Config; minutes: number }) {
+  const { slug, mode, config, minutes } = props;
+  const { Play, WarmUp } = gameClients[slug]!;
   const { sound } = useSettings();
   const [run, setRun] = useState<Run>({ status: "loading" });
   const [round, setRound] = useState(0);
@@ -38,7 +40,7 @@ export function PlayClient(props: { mode: Exclude<PlayMode, "tutorial">; config:
     setSaved("idle");
     pending.current = [];
     (async () => {
-      const start = () => api.startSession({ gameSlug: "grid-recall", mode, config, minutes });
+      const start = () => api.startSession({ gameSlug: slug, mode, config, minutes });
       try {
         // Ask for a session straight away; only sign in as a guest if the server says there's no user.
         const s = await start().catch(async (e) => {
@@ -46,7 +48,7 @@ export function PlayClient(props: { mode: Exclude<PlayMode, "tutorial">; config:
           await ensureSession();
           return start();
         });
-        if (!cancelled) setRun({ status: "ready", sessionId: s.sessionId, seed: s.seed, config: s.config as GridRecallConfig, durationMs: s.durationMs });
+        if (!cancelled) setRun({ status: "ready", sessionId: s.sessionId, seed: s.seed, config: s.config as Config, durationMs: s.durationMs });
       } catch (e) {
         if (cancelled) return;
         if (e instanceof ApiClientError && e.status < 500 && e.status !== 401) {
@@ -60,7 +62,7 @@ export function PlayClient(props: { mode: Exclude<PlayMode, "tutorial">; config:
     return () => {
       cancelled = true;
     };
-  }, [mode, config, minutes, round]);
+  }, [slug, mode, config, minutes, round]);
 
   const sessionId = run.status === "ready" ? run.sessionId : null;
 
@@ -84,13 +86,13 @@ export function PlayClient(props: { mode: Exclude<PlayMode, "tutorial">; config:
     }
   }, [sessionId]);
 
-  if (!demoDone) return <GridRecallWarmUp onStart={() => setDemoDone(true)} startLabel="Start assessment" />;
+  if (!demoDone) return <WarmUp onStart={() => setDemoDone(true)} startLabel="Start assessment" />;
   if (run.status === "loading") return <p className="py-20 text-zinc-500">Starting session…</p>;
   if (run.status === "blocked") {
     return (
       <div className="flex max-w-md flex-col items-center gap-4 py-16 text-center">
         <p className="text-lg font-semibold">{run.message}</p>
-        <Link href="/games/grid-recall" className="text-sm text-zinc-500 hover:underline">
+        <Link href={`/games/${slug}`} className="text-sm text-zinc-500 hover:underline">
           Back to the lobby
         </Link>
       </div>
@@ -113,7 +115,7 @@ export function PlayClient(props: { mode: Exclude<PlayMode, "tutorial">; config:
   return (
     <div className="flex w-full flex-col items-center gap-2">
       {run.sessionId === null && <p className="text-sm text-amber-600">Can&apos;t reach the server: playing offline, results won&apos;t be saved.</p>}
-      <GridRecallPlay
+      <Play
         key={run.seed}
         seed={run.seed}
         mode={mode}

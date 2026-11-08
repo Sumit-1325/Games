@@ -9,7 +9,7 @@
  * of the shape questions are right.
  */
 import { z } from "zod";
-import type { Cell, LevelResult } from "@cogniarena/game-core";
+import { standardNextLevel, type Cell, type LevelResult } from "@cogniarena/game-core";
 import type { Answer, GridRecallLevel } from "./generateLevel";
 
 export const PASS_DISTRACTOR_RATIO = 0.7;
@@ -75,17 +75,7 @@ export function scoreLevel(level: GridRecallLevel, responses: GridRecallResponse
  * same level → drop one level (never below 1).
  */
 export function nextLevel(history: LevelResult[]): number {
-  const last = history.at(-1);
-  if (!last) return 1;
-  if (last.passed) return last.level + 1;
-
-  let failsHere = 0;
-  for (let i = history.length - 1; i >= 0; i--) {
-    const r = history[i]!;
-    if (r.level !== last.level || r.passed) break;
-    failsHere++;
-  }
-  return failsHere >= 2 ? Math.max(1, last.level - 1) : last.level;
+  return standardNextLevel(history);
 }
 
 const cellSchema = z.object({ row: z.number().int().min(0).max(20), col: z.number().int().min(0).max(20) });

@@ -47,7 +47,7 @@ export default async function LobbyPage({ params }: { params: Promise<{ slug: st
         <div>
           <h2 className="text-lg font-semibold">Assessment</h2>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Starts with a quick demo: a ball blinks and you answer one shape question. Then press Start and the timer begins. Levels get harder as you pass them.
+            {game.demoBlurb}
           </p>
         </div>
         <label className="flex flex-col gap-1 text-sm">
@@ -66,8 +66,12 @@ export default async function LobbyPage({ params }: { params: Promise<{ slug: st
         <input type="hidden" name="mode" value="practice" />
         <div>
           <h2 className="font-semibold">Practice</h2>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">No timer, and you pick the grid size. Saved to history, not ranked.</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            No timer{game.practiceGridSize ? ", and you pick the grid size" : ""}. Saved to history, not ranked.
+          </p>
         </div>
+        {game.practiceGridSize && (
+          <>
         <div className="grid grid-cols-2 gap-4">
           <label className="flex flex-col gap-1 text-sm">
             Rows
@@ -91,6 +95,8 @@ export default async function LobbyPage({ params }: { params: Promise<{ slug: st
           </label>
         </div>
         <p className="-mt-2 text-xs text-zinc-500">On phones, grids above 6×6 get small: 6×6 or less plays best.</p>
+          </>
+        )}
         <button type="submit" className="rounded-xl bg-zinc-200 px-6 py-3 font-semibold hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700">
           Start practice
         </button>
@@ -100,9 +106,11 @@ export default async function LobbyPage({ params }: { params: Promise<{ slug: st
         <Link href="/dashboard" className="text-zinc-500 hover:underline">
           ← Dashboard
         </Link>
-        <Link href={`/games/${slug}/tutorial`} className="text-indigo-600 hover:underline dark:text-indigo-400">
-          Full walkthrough: how to play
-        </Link>
+        {game.hasWalkthrough && (
+          <Link href={`/games/${slug}/tutorial`} className="text-indigo-600 hover:underline dark:text-indigo-400">
+            Full walkthrough: how to play
+          </Link>
+        )}
       </div>
     </div>
   );

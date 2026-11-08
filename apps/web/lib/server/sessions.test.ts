@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { attemptSeed } from "@cogniarena/game-core";
 import { createTestDb, user, type Db } from "@cogniarena/db";
 import { generateLevel, type GridRecallResponses } from "@cogniarena/grid-recall";
+import { generateLevel as generateEquation } from "@cogniarena/missing-digits";
 import {
   ApiError,
   PAUSE_GRACE_MS,
@@ -135,3 +136,26 @@ describe("streakFrom", () => {
     expect(streakFrom(["2026-11-01"], today)).toBe(0);
   });
 });
+
+describe("Missing Digits through the same session service", () => {
+  it("scores equations on the server, levels up, and ignores a grid-size config", async () => {
+    const s = await startSession(db, { userId: "u1", gameSlug: "missing-digits", mode: "practice", config: { rows: 5, cols: 5 } });
+    expect(s.config).toEqual({});
+
+    const l0 = generateEquation(attemptSeed(s.seed, 0), 1);
+    const ok = await submitLevel(db, { userId: "u1", sessionId: s.sessionId, attempt: 0, responses: { digits: l0.example, timeMs: 6000 } });
+    expect(ok.result).toMatchObject({ passed: true, level: 1 });
+    expect(ok.nextLevel).toBe(2);
+
+    // Level 2 has 3 boxes; repeating a digit is wrong whatever the sum.
+    const bad = await submitLevel(db, { userId: "u1", sessionId: s.sessionId, attempt: 1, responses: { digits: [2, 2, 2], timeMs: 9000 } });
+    expect(bad.result).toMatchObject({ passed: false, level: 2, points: 0 });
+
+    await rejects(submitLevel(db, { userId: "u1", sessionId: s.sessionId, attempt: 2, responses: { digits: [0, 12], timeMs: 1 } }), "invalid-responses");
+
+    const done = await finishSession(db, "u1", s.sessionId);
+    expect(done.totalScore).toBe(ok.result.points);
+    expect((await listSessions(db, "u1")).sessions[0]).toMatchObject({ slug: "missing-digits", name: "Missing Digits" });
+  });
+});
+

@@ -187,6 +187,9 @@ importers:
       '@cogniarena/grid-recall':
         specifier: workspace:*
         version: link:../../packages/games/grid-recall
+      '@cogniarena/missing-digits':
+        specifier: workspace:*
+        version: link:../../packages/games/missing-digits
       '@cogniarena/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -273,6 +276,31 @@ importers:
         version: 3.2.7(@types/node@24.19.2)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.23.15)
 
   packages/games/grid-recall:
+    dependencies:
+      '@cogniarena/game-core':
+        specifier: workspace:*
+        version: link:../../game-core
+      '@cogniarena/ui':
+        specifier: workspace:*
+        version: link:../../ui
+      zod:
+        specifier: ^4.0.0
+        version: 4.6.7
+    devDependencies:
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.3.0
+      react:
+        specifier: ^19.0.0
+        version: 19.3.1
+      typescript:
+        specifier: ^5.8.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.0
+        version: 3.2.7(@types/node@24.19.2)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.23.15)
+
+  packages/games/missing-digits:
     dependencies:
       '@cogniarena/game-core':
         specifier: workspace:*

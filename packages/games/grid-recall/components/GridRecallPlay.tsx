@@ -15,7 +15,7 @@ import type { GridRecallConfig, GridRecallResult, ShapeTask } from "../engine";
 import { remainingMs, summarise, type LevelSubmission, type SessionState } from "../machine";
 import { GridBoard } from "./GridBoard";
 import { ShapeQuestion } from "./ShapeQuestion";
-import { sounds } from "./sound";
+import { sounds } from "@cogniarena/ui";
 import { useGridRecallSession } from "./useGridRecallSession";
 
 export type PlayMode = "assessment" | "practice" | "tutorial";

@@ -1,12 +1,14 @@
 /**
- * Results (PLAN.md → "Screens"): score, level reached, recall and shape
- * accuracy, reaction time and a level-by-level breakdown, all from the
- * server-scored attempts, not from the browser.
+ * Results (PLAN.md → "Screens"): score, level reached, game-specific accuracy
+ * tiles and a level-by-level breakdown, all from the server-scored attempts,
+ * not from the browser.
  */
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getDb } from "@cogniarena/db";
 import { summarise, type GridRecallResult } from "@cogniarena/grid-recall";
+import { summarise as summariseDigits, type MissingDigitsResult } from "@cogniarena/missing-digits";
+import { getGame } from "@/lib/registry";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { ApiError, getSessionResults } from "@/lib/server/sessions";
 
@@ -27,24 +29,58 @@ export default async function ResultsPage({ params }: { params: Promise<{ sessio
     throw e;
   }
   const { session, slug, attempts } = data;
-  const results = attempts.map((a) => a.result as unknown as GridRecallResult);
-  const s = summarise(results);
+  const raw = attempts.map((a) => a.result);
   const mins = session.endedAt ? Math.max(1, Math.round((session.endedAt.getTime() - session.startedAt.getTime()) / 60_000)) : null;
 
-  const tiles: [string, string][] = [
-    ["Score", String(session.totalScore)],
-    ["Level reached", String(session.finalLevel || s.highestLevel || "–")],
-    ["Recall accuracy", pct(s.recallAccuracy)],
-    ["Shape accuracy", pct(s.distractorAccuracy)],
-    ["Avg reaction", s.avgReactionMs === null ? "–" : `${s.avgReactionMs} ms`],
-    ["Levels played", String(s.levelsPlayed)],
-  ];
+  const title = getGame(slug)?.engine.title ?? slug;
+  const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
+
+  // Game-specific tiles and level table; everything else on the page is shared.
+  let tiles: [string, string][];
+  let columns: string[];
+  let rows: { cells: string[]; points: number; passed: boolean }[];
+  if (slug === "missing-digits") {
+    const results = raw as unknown as MissingDigitsResult[];
+    const s = summariseDigits(results);
+    tiles = [
+      ["Score", String(session.totalScore)],
+      ["Level reached", String(session.finalLevel || s.highestLevel || "–")],
+      ["Solved", `${s.solved}/${s.levelsPlayed}`],
+      ["Accuracy", pct(s.levelsPlayed ? s.solved / s.levelsPlayed : null)],
+      ["Avg solve time", s.avgSolveMs === null ? "–" : seconds(s.avgSolveMs)],
+      ["Levels played", String(s.levelsPlayed)],
+    ];
+    columns = ["Level", "Your answer", "Time"];
+    rows = results.map((r) => ({ cells: [String(r.level), r.equation, seconds(r.timeMs)], points: r.points, passed: r.passed }));
+  } else {
+    const results = raw as unknown as GridRecallResult[];
+    const s = summarise(results);
+    tiles = [
+      ["Score", String(session.totalScore)],
+      ["Level reached", String(session.finalLevel || s.highestLevel || "–")],
+      ["Recall accuracy", pct(s.recallAccuracy)],
+      ["Shape accuracy", pct(s.distractorAccuracy)],
+      ["Avg reaction", s.avgReactionMs === null ? "–" : `${s.avgReactionMs} ms`],
+      ["Levels played", String(s.levelsPlayed)],
+    ];
+    columns = ["Level", "Recall", "Shapes", "Avg reaction"];
+    rows = results.map((r) => ({
+      cells: [
+        String(r.level),
+        `${r.recallCorrect}/${r.balls}`,
+        `${r.distractorCorrect}/${r.distractorTotal}`,
+        r.avgReactionMs === null ? "–" : `${r.avgReactionMs} ms`,
+      ],
+      points: r.points,
+      passed: r.passed,
+    }));
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 py-8">
       <header>
         <p className="text-sm text-zinc-500">
-          Grid Recall · {session.mode === "assessment" ? "Assessment" : "Practice"} · {session.startedAt.toLocaleString("en-IN")}
+          {title} · {session.mode === "assessment" ? "Assessment" : "Practice"} · {session.startedAt.toLocaleString("en-IN")}
           {mins && ` · ${mins} min`}
         </p>
         <h1 className="text-3xl font-bold">Results</h1>
@@ -65,7 +101,7 @@ export default async function ResultsPage({ params }: { params: Promise<{ sessio
 
       <section>
         <h2 className="mb-2 font-semibold">Level by level</h2>
-        {results.length === 0 ? (
+        {rows.length === 0 ? (
           <p className="text-sm text-zinc-500">No levels were completed.</p>
         ) : (
           <div className="overflow-x-auto rounded-2xl ring-1 ring-zinc-200 dark:ring-zinc-800">
@@ -73,26 +109,24 @@ export default async function ResultsPage({ params }: { params: Promise<{ sessio
               <thead className="bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
                 <tr>
                   <th className="px-3 py-2">#</th>
-                  <th className="px-3 py-2">Level</th>
-                  <th className="px-3 py-2">Recall</th>
-                  <th className="px-3 py-2">Shapes</th>
-                  <th className="px-3 py-2">Avg reaction</th>
+                  {columns.map((c) => (
+                    <th key={c} className="px-3 py-2">
+                      {c}
+                    </th>
+                  ))}
                   <th className="px-3 py-2 text-right">Points</th>
                   <th className="px-3 py-2">Result</th>
                 </tr>
               </thead>
               <tbody>
-                {results.map((r, i) => (
+                {rows.map((r, i) => (
                   <tr key={i} className="border-t border-zinc-200 dark:border-zinc-800">
                     <td className="px-3 py-2 text-zinc-500">{i + 1}</td>
-                    <td className="px-3 py-2">{r.level}</td>
-                    <td className="px-3 py-2 tabular-nums">
-                      {r.recallCorrect}/{r.balls}
-                    </td>
-                    <td className="px-3 py-2 tabular-nums">
-                      {r.distractorCorrect}/{r.distractorTotal}
-                    </td>
-                    <td className="px-3 py-2 tabular-nums">{r.avgReactionMs === null ? "–" : `${r.avgReactionMs} ms`}</td>
+                    {r.cells.map((c, j) => (
+                      <td key={j} className={`px-3 py-2 tabular-nums ${columns[j] === "Your answer" ? "font-mono" : ""}`}>
+                        {c}
+                      </td>
+                    ))}
                     <td className="px-3 py-2 text-right tabular-nums">{r.points}</td>
                     <td className={`px-3 py-2 font-medium ${r.passed ? "text-emerald-600" : "text-red-500"}`}>{r.passed ? "Pass" : "Fail"}</td>
                   </tr>

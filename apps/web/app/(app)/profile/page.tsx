@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { getDb } from "@cogniarena/db";
 import { AccountActions, ProfileForm, SettingsPanel } from "@/components/ProfileControls";
 import { ProgressChart } from "@/components/ProgressChart";
+import { games } from "@/lib/registry";
 import { getCurrentUser } from "@/lib/server/current-user";
 import { getStats, listSessions } from "@/lib/server/sessions";
 
@@ -15,12 +16,15 @@ const PAGE = 20;
 
 const card = "rounded-2xl bg-white p-5 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800";
 
-export default async function ProfilePage({ searchParams }: { searchParams: Promise<{ offset?: string }> }) {
+export default async function ProfilePage({ searchParams }: { searchParams: Promise<{ offset?: string; game?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/sign-in?next=/profile");
-  const offset = Math.max(0, Number((await searchParams).offset) || 0);
+  const q = await searchParams;
+  const offset = Math.max(0, Number(q.offset) || 0);
+  const slugs = Object.keys(games);
+  const slug = q.game && games[q.game] ? q.game : slugs[0]!;
   const db = getDb();
-  const [stats, history] = await Promise.all([getStats(db, user.id, "grid-recall"), listSessions(db, user.id, { limit: PAGE, offset })]);
+  const [stats, history] = await Promise.all([getStats(db, user.id, slug), listSessions(db, user.id, { limit: PAGE, offset })]);
   const trend = stats.trend.filter((t) => t.mode === "assessment");
 
   return (
@@ -38,7 +42,20 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       </header>
 
       <section className={card}>
-        <h2 className="mb-1 font-semibold">Grid Recall · Assessment score</h2>
+        <div className="mb-3 flex flex-wrap gap-2" role="tablist" aria-label="Game">
+          {slugs.map((g) => (
+            <Link
+              key={g}
+              href={`/profile?game=${g}`}
+              role="tab"
+              aria-selected={g === slug}
+              className={`rounded-full px-3 py-1 text-sm font-medium ${g === slug ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300"}`}
+            >
+              {games[g]!.engine.title}
+            </Link>
+          ))}
+        </div>
+        <h2 className="mb-1 font-semibold">{games[slug]!.engine.title} · Assessment score</h2>
         <p className="mb-4 text-sm text-zinc-500">
           Best {stats.bestScore} · best level {stats.bestLevel || "–"} · {stats.sessionsPlayed} sessions · {stats.streak}-day streak
         </p>
@@ -50,8 +67,8 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
         {history.sessions.length === 0 ? (
           <p className="text-sm text-zinc-500">
             No sessions yet.{" "}
-            <Link href="/games/grid-recall" className="text-indigo-600 hover:underline dark:text-indigo-400">
-              Play Grid Recall
+            <Link href="/dashboard" className="text-indigo-600 hover:underline dark:text-indigo-400">
+              Pick a game
             </Link>
           </p>
         ) : (

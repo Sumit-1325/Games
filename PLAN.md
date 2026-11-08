@@ -304,11 +304,32 @@ Capgemini games worth adding next, in rough order of build effort:
 
 | Game | What the player does | Build effort |
 | --- | --- | --- |
-| Digit Challenge | Fill blanks with digits so an equation balances, each digit used at most once | Low |
+| Digit Challenge → built as **Missing Digits** (see below) | Fill blanks with digits so an equation balances, each digit used at most once | Low |
 | Switch Challenge | Work out which switch code reordered a row of shapes | Low–medium |
 | Deductive (Geo-Sudo) | Find the missing symbol in a 4×4 to 6×6 grid where each shape appears once per row and column | Medium |
 | Inductive Logical Thinking | Pick the figure that breaks the rule the others follow | Medium (needs a figure generator) |
 | Motion Challenge | Slide blocks so a ball reaches the hole in the fewest moves | High (needs a puzzle solver for "minimum moves") |
+
+### Game design: Missing Digits (built)
+
+Our own name and look for the "fill in the digits" puzzle type, so we never reuse a company's game name or branding.
+
+- **What the player sees:** an equation like `□ + □ × □ = 23`. They fill each box with a digit 1–9, each digit at most once, tapping a box to choose where the next digit goes (or typing 1–9). Normal maths order applies (× and ÷ before + and −). **Any** answer that makes it true counts.
+- **Flow:** the same as Grid Recall. Start assessment → automatic demo (the app solves `3 + 4 × 2 = 11` and explains × before +; the player then solves one 2-box sum) → Start → 6 or 9 minute timer. Practice is untimed, with no settings.
+- **Levels:** pass → next level; fail → retry with a new equation; fail twice → drop a level (the shared `standardNextLevel` in `game-core`).
+
+| Level | Boxes | Operators | Speed-bonus budget |
+| --- | --- | --- | --- |
+| 1 | 2 | + | 15 s |
+| 2 | 3 | + − | 25 s |
+| 3 | 3 | + − × | 30 s |
+| 4 | 4 | + − × | 40 s |
+| 5 | 4 | + − × ÷ | 45 s |
+| 6+ | 5 | + − × ÷ | 60 s |
+
+- **Generation:** distinct random digits and operators from the seed; keep combinations where every ÷ is exact and the answer is 0–99, the level's newest operator appears, and there's no × 1 or ÷ 1.
+- **Scoring:** solved = level × 10 points + up to 20% speed bonus within the budget; wrong = 0, and one valid answer is shown. Answers faster than 300 ms per box are flagged.
+- **Code:** `packages/games/missing-digits` (engine, `machine.ts`, components), plugged in through `apps/web/lib/registry.ts` and `apps/web/components/gameClients.tsx`.
 
 Game descriptions are from candidate write-ups ([PrepInsta](https://prepinsta.com/capgemini-game-based-aptitude-test/)). Later, a **Company mock test** mode can chain 4 games back to back with the real time limits, using the same session API.
 
@@ -326,7 +347,7 @@ flowchart LR
     P1 --> P2 --> G --> P3 --> P4
 ```
 
-Next (v2): Digit and Switch games, leaderboard, company mock test. When more games go live, turn the landing-page hero preview into a slider that cycles through each game's preview.
+Next (v2): ~~Digit game~~ (done: Missing Digits), Switch game, leaderboard, company mock test. When more games go live, turn the landing-page hero preview into a slider that cycles through each game's preview.
 
 The gate after week 3 matters most: if 5–10 classmates can't finish a session without help, fix the tutorial before adding accounts.
 
@@ -367,6 +388,7 @@ The gate after week 3 matters most: if 5–10 classmates can't finish a session 
 - **`level_attempts` keeps game-specific numbers in JSONB** (`result`, `responses`) plus generic `level`, `passed`, `points`, `avg_rt_ms`, `flags`, so a new game needs no schema change. `game_sessions.flagged` marks sessions with implausible answers; they're excluded from bests.
 - **The server decides each level** from its own attempt history (`nextLevel`), rebuilds it from `seed:attempt-n`, and scores it. Submissions after the timer + 30 min (pause allowance) are rejected; answers under 150 ms are flagged.
 - **Tutorial rounds aren't saved as sessions**; passing one sets `tutorialCompleted`, which no longer locks anything.
+- **Adding a game** = a package with an engine + `machine.ts` + a Play and a WarmUp component (same props as Grid Recall's), one entry in `apps/web/lib/registry.ts` and one in `apps/web/components/gameClients.tsx`. The session API, results, history, profile tabs, dashboard and admin need no changes. Shared pieces live in `game-core` (`standardNextLevel`) and `ui` (`sounds`, `TutorialPlayer`).
 - **Assessment opens with an automatic demo** (`GridRecallWarmUp`), matching the real test. The server session is created while the demo plays, so the game starts without a loading wait.
 - **Sound and Reduce motion are per-device settings** (localStorage); theme uses `next-themes`. `PATCH /api/me/progress` only stores `tutorialCompleted`.
 - **Route protection** is a cookie check in `proxy.ts` (Next 16's replacement for `middleware.ts`) plus a real session check in every page and API handler. Better Auth's built-in rate limiting covers sign-in; Upstash comes with the leaderboard.

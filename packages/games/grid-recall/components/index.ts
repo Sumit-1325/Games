@@ -4,4 +4,4 @@ export { GridRecallWarmUp } from "./GridRecallWarmUp";
 export { GridBoard } from "./GridBoard";
 export { ShapeQuestion, ShapeView } from "./ShapeQuestion";
 export { useGridRecallSession } from "./useGridRecallSession";
-export { sounds } from "./sound";
+export { sounds } from "@cogniarena/ui";

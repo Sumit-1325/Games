@@ -11,6 +11,7 @@
  * same PGlite data folder twice.
  */
 import { existsSync, mkdirSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import path from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";

@@ -9,7 +9,6 @@ import { HeroPreview } from "@/components/HeroPreview";
 import { games } from "@/lib/registry";
 
 const comingSoon = [
-  { title: "Digit Challenge", blurb: "Fill in missing digits so every equation works out.", skills: ["numerical reasoning"] },
   { title: "Switch Challenge", blurb: "Work out which operator turns one symbol row into another.", skills: ["deductive logic"] },
 ];
 
@@ -63,7 +62,7 @@ function SectionHeading({ eyebrow, title, sub }: { eyebrow: string; title: strin
 }
 
 export default function LandingPage() {
-  const grid = Object.values(games)[0]!;
+  const live = Object.values(games);
 
   return (
     <div className="flex flex-col gap-28 pb-12">
@@ -81,7 +80,7 @@ export default function LandingPage() {
             Capgemini. Learn the format, then train against the clock.
           </p>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Link href={`/games/${grid.engine.slug}`} className={primaryBtn}>
+            <Link href="/dashboard" className={primaryBtn}>
               Start practising free
             </Link>
             <a href="#how-it-works" className={secondaryBtn}>
@@ -113,17 +112,19 @@ export default function LandingPage() {
       <section>
         <SectionHeading eyebrow="Games" title="Pick a game and start" sub="More games from real placement rounds are on the way." />
         <div className="grid gap-6 lg:grid-cols-3">
+          {live.map((g) => (
           <Link
-            href={`/games/${grid.engine.slug}`}
+            key={g.engine.slug}
+            href={`/games/${g.engine.slug}`}
             className="group flex flex-col gap-5 rounded-3xl bg-white p-8 ring-2 ring-indigo-500 transition hover:shadow-xl hover:shadow-indigo-500/10 lg:col-span-1 dark:bg-zinc-900"
           >
             <div className="flex items-center justify-between">
-              <h3 className="text-2xl font-bold">{grid.engine.title}</h3>
+              <h3 className="text-2xl font-bold">{g.engine.title}</h3>
               <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">Live</span>
             </div>
-            <p className="text-base leading-relaxed text-zinc-600 dark:text-zinc-400">{grid.description}</p>
+            <p className="text-base leading-relaxed text-zinc-600 dark:text-zinc-400">{g.description}</p>
             <ul className="flex flex-wrap gap-2">
-              {grid.engine.skills.map((s) => (
+              {g.engine.skills.map((s) => (
                 <li key={s} className="rounded-full bg-indigo-100 px-3 py-1 text-sm text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200">
                   {s}
                 </li>
@@ -132,6 +133,7 @@ export default function LandingPage() {
             <p className="text-sm text-zinc-500 dark:text-zinc-400">6 or 9 minute sessions · untimed practice too</p>
             <span className="mt-auto text-lg font-semibold text-indigo-600 group-hover:underline dark:text-indigo-400">Play now →</span>
           </Link>
+          ))}
           {comingSoon.map((g) => (
             <div key={g.title} className="flex flex-col gap-5 rounded-3xl border-2 border-dashed border-zinc-300 p-8 dark:border-zinc-700">
               <div className="flex items-center justify-between">
@@ -176,7 +178,7 @@ export default function LandingPage() {
         <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Your placement round is coming. Be ready.</h2>
         <p className="mx-auto mt-4 max-w-xl text-lg text-indigo-100">Start with a 30-second demo. No account needed: sign in later to keep your history.</p>
         <Link
-          href={`/games/${grid.engine.slug}`}
+          href="/dashboard"
           className="mt-8 inline-flex items-center justify-center rounded-xl bg-white px-8 py-4 text-lg font-semibold text-indigo-700 transition hover:bg-indigo-50"
         >
           Start practising free

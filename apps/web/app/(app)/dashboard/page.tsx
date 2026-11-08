@@ -12,7 +12,6 @@ import { adminOverview, getStats } from "@/lib/server/sessions";
 export const metadata = { title: "Dashboard · CogniArena" };
 
 const COMING_SOON = [
-  { title: "Digit Challenge", tag: "capgemini", blurb: "Fill in digits so the equation balances." },
   { title: "Switch Challenge", tag: "capgemini", blurb: "Work out which code reordered the shapes." },
   { title: "Deductive (Geo-Sudo)", tag: "capgemini", blurb: "Find the missing symbol in the grid." },
 ];

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+// Inter is loaded via next/font/google at runtime (fetched from Google Fonts CDN).
+// If you need to build offline or self-host, switch to next/font/local.
+// The CSS fallback chain in globals.css (ui-sans-serif, system-ui) covers offline builds.
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Logo } from "@/components/Logo";
@@ -9,17 +11,35 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+
 
 export const metadata: Metadata = {
   title: "CogniArena",
   description: "Practise the cognitive games used in campus hiring tests.",
 };
 
+// Preconnect + load Inter from Google Fonts CDN (non-blocking, build-time safe).
+function InterFont() {
+  return (
+    <>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap"
+      />
+    </>
+  );
+}
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     // next-themes sets the theme class on <html> before React hydrates.
-    <html lang="en" suppressHydrationWarning className={inter.variable}>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <InterFont />
+      </head>
       <body className="flex min-h-dvh flex-col font-sans">
         <ThemeProvider>
           <SettingsEffects />
@@ -27,7 +47,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <nav className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 px-4 py-3 sm:px-6">
               <Link href="/" className="flex items-center gap-2.5 text-lg font-bold text-indigo-600 dark:text-indigo-400">
                 <Logo className="size-8" />
-                <span className="hidden text-zinc-900 min-[360px]:inline dark:text-zinc-100">CogniArena</span>
+                <span className="hidden text-zinc-900 min-[430px]:inline dark:text-zinc-100">CogniArena</span>
               </Link>
               <div className="flex items-center gap-1">
                 <NavUser />

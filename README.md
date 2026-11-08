@@ -1,6 +1,9 @@
 # CogniArena
 
-Practise the cognitive games used in campus hiring tests. The first game is **Grid Recall**: remember the order in which balls blink on a grid while answering a shape-rotation question between every blink.
+Practise the cognitive games used in campus hiring tests. Two games so far:
+
+- **Grid Recall**: remember the order in which balls blink on a grid while answering a shape-rotation question between every blink.
+- **Missing Digits**: fill the boxes with digits 1–9 so the equation is true, each digit used once.
 
 Product and technical plan: [PLAN.md](PLAN.md).
 
@@ -50,12 +53,13 @@ SCREENSHOTS=./screens E2E_BASE_URL=http://localhost:3210 pnpm test:e2e screensho
 
 ```
 apps/web                    Next.js app: pages, API routes, auth, session service
-packages/game-core          Shared types (GameEngine, TutorialStep), seeded RNG
+packages/game-core          Shared types (GameEngine, TutorialStep), seeded RNG, level rule
 packages/games/grid-recall  Grid Recall: engine (pure), game flow (machine.ts), React components, tutorial
-packages/ui                 Shared React UI: the coach-mark TutorialPlayer
+packages/games/missing-digits  Missing Digits: engine, game flow, React components, demo
+packages/ui                 Shared React UI: the coach-mark TutorialPlayer, sounds
 packages/db                 Drizzle schema, migrations, Postgres/PGlite connection
 ```
 
 ## Adding a game
 
-Create `packages/games/<slug>` with an engine (`generateLevel`, `scoreLevel`, `nextLevel`, config and responses schemas) and a `manifest.ts` exporting a `GameEngine`. Then add it to `apps/web/lib/registry.ts`. The session API, history, stats and admin page pick it up without changes.
+Copy the shape of `packages/games/missing-digits`: an engine (`generateLevel`, `scoreLevel`, `nextLevel`, config and responses schemas), a `manifest.ts` exporting a `GameEngine`, a `machine.ts`, and `Play` + `WarmUp` components with the same props as the other games. Then add it to `apps/web/lib/registry.ts` and `apps/web/components/gameClients.tsx`, add the package to `apps/web/package.json` and `next.config.ts` (`transpilePackages`), and give the results page its tiles. The session API, history, stats and admin page pick it up without changes.
