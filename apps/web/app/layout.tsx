@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 // If you need to build offline or self-host, switch to next/font/local.
 // The CSS fallback chain in globals.css (ui-sans-serif, system-ui) covers offline builds.
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { Logo } from "@/components/Logo";
 import { NavUser } from "@/components/NavUser";
 import { SettingsEffects } from "@/components/SettingsEffects";
@@ -50,7 +50,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 <span className="hidden text-zinc-900 min-[430px]:inline dark:text-zinc-100">CogniArena</span>
               </Link>
               <div className="flex items-center gap-1">
-                <NavUser />
+                <Suspense fallback={<div className="h-8 w-24 rounded-lg bg-zinc-200/50 dark:bg-zinc-800/50 animate-pulse" />}>
+                  <NavUser />
+                </Suspense>
                 <ThemeToggle />
               </div>
             </nav>

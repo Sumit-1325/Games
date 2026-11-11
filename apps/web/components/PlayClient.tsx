@@ -27,7 +27,12 @@ export function PlayClient(props: { slug: string; mode: "assessment" | "practice
   const { slug, mode, config, minutes } = props;
   const { Play, WarmUp } = gameClients[slug]!;
   const { sound } = useSettings();
-  const [run, setRun] = useState<Run>({ status: "loading" });
+  // Practice mode starts in 0ms with a local seed; assessment mode waits for demo or session.
+  const [run, setRun] = useState<Run>(() =>
+    mode === "practice"
+      ? { status: "ready", sessionId: null, seed: randomSeed(), config, durationMs: null }
+      : { status: "loading" },
+  );
   const [round, setRound] = useState(0);
   // Assessment opens with the short demo (like the real test); the session is created meanwhile.
   const [demoDone, setDemoDone] = useState(mode !== "assessment");
@@ -36,27 +41,59 @@ export function PlayClient(props: { slug: string; mode: "assessment" | "practice
 
   useEffect(() => {
     let cancelled = false;
-    setRun({ status: "loading" });
-    setSaved("idle");
     pending.current = [];
+    setSaved("idle");
+
+    if (mode === "practice") {
+      // In practice mode, game is already playable. Register session in background for history.
+      (async () => {
+        try {
+          await ensureSession();
+          const s = await api.startSession({ gameSlug: slug, mode, config, minutes });
+          if (!cancelled) {
+            setRun((curr) => (curr.status === "ready" ? { ...curr, sessionId: s.sessionId } : curr));
+          }
+        } catch {
+          // Practice mode can happily run offline if server is cold
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setRun({ status: "loading" });
     (async () => {
       const start = () => api.startSession({ gameSlug: slug, mode, config, minutes });
       try {
-        // Prewarm session token; returns immediately if already authenticated
         await ensureSession();
         const s = await start().catch(async (e) => {
           if (!(e instanceof ApiClientError && e.status === 401)) throw e;
           await ensureSession();
           return start();
         });
-        if (!cancelled) setRun({ status: "ready", sessionId: s.sessionId, seed: s.seed, config: s.config as Config, durationMs: s.durationMs });
+        if (!cancelled) {
+          setRun({
+            status: "ready",
+            sessionId: s.sessionId,
+            seed: s.seed,
+            config: s.config as Config,
+            durationMs: s.durationMs,
+          });
+        }
       } catch (e) {
         if (cancelled) return;
         if (e instanceof ApiClientError && e.status < 500 && e.status !== 401) {
           setRun({ status: "blocked", code: e.code, message: e.message });
         } else {
           // Offline / server down: play locally, results are not saved.
-          setRun({ status: "ready", sessionId: null, seed: randomSeed(), config, durationMs: mode === "assessment" ? minutes * 60_000 : null });
+          setRun({
+            status: "ready",
+            sessionId: null,
+            seed: randomSeed(),
+            config,
+            durationMs: minutes * 60_000,
+          });
         }
       }
     })();

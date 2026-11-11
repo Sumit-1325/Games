@@ -19,13 +19,21 @@ const COMING_SOON = [
 const COMPANY_NAMES: Record<string, string> = { capgemini: "Capgemini-style" };
 
 export default async function DashboardPage() {
-  const user = await getCurrentUser();
+  const user = await getCurrentUser().catch(() => null);
   const db = getDb();
-  const active = new Map((await adminOverview(db)).map((g) => [g.slug, g.isActive]));
+  let active = new Map<string, boolean>();
+  try {
+    active = new Map((await adminOverview(db)).map((g) => [g.slug, g.isActive]));
+  } catch {
+    // If DB is waking up, all registered games are active by default
+  }
   const playable = await Promise.all(
     Object.values(games)
       .filter(({ engine }) => active.get(engine.slug) !== false)
-      .map(async (g) => ({ ...g, stats: user ? await getStats(db, user.id, g.engine.slug) : null })),
+      .map(async (g) => ({
+        ...g,
+        stats: user ? await getStats(db, user.id, g.engine.slug).catch(() => null) : null,
+      })),
   );
   const tags = [...new Set([...playable.flatMap((g) => g.engine.companyTags), ...COMING_SOON.map((c) => c.tag)])];
 
