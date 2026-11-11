@@ -35,7 +35,7 @@ export function BoardView({
     startY: number;
   } | null>(null);
 
-  // Keyboard navigation for Red Ball (Straight-Line slides)
+  // Keyboard navigation for Red Ball
   useEffect(() => {
     if (disabled || !onMoveBall) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -57,7 +57,7 @@ export function BoardView({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [disabled, onMoveBall]);
 
-  // Pointer drag handling for both ball and blocks
+  // Pointer drag handling for both ball and obstacle blocks in all 4 directions
   const handlePointerDown = (id: string | "ball", e: React.PointerEvent) => {
     if (disabled) return;
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
@@ -75,24 +75,22 @@ export function BoardView({
     }
     const dx = e.clientX - dragInfo.startX;
     const dy = e.clientY - dragInfo.startY;
-    const threshold = 18;
+    const threshold = 16;
 
     if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
+      const dir: "left" | "right" | "up" | "down" =
+        Math.abs(dx) > Math.abs(dy)
+          ? dx > 0
+            ? "right"
+            : "left"
+          : dy > 0
+          ? "down"
+          : "up";
+
       if (dragInfo.id === "ball") {
-        if (Math.abs(dx) > Math.abs(dy)) {
-          onMoveBall?.(dx > 0 ? "right" : "left");
-        } else {
-          onMoveBall?.(dy > 0 ? "down" : "up");
-        }
+        onMoveBall?.(dir);
       } else {
-        const block = blocks.find((b) => b.id === dragInfo.id);
-        if (block) {
-          if (block.orientation === "h" && Math.abs(dx) > threshold) {
-            onMoveBlock?.(block.id, dx > 0 ? "right" : "left");
-          } else if (block.orientation === "v" && Math.abs(dy) > threshold) {
-            onMoveBlock?.(block.id, dy > 0 ? "down" : "up");
-          }
-        }
+        onMoveBlock?.(dragInfo.id, dir);
       }
     }
     setDragInfo(null);
@@ -106,7 +104,7 @@ export function BoardView({
   // Check if a cell is in straight line of sight from the red ball
   const isReachableLineOfSight = (r: number, c: number): boolean => {
     if (r === redBall.row && c === redBall.col) return false;
-    if (r !== redBall.row && c !== redBall.col) return false; // Diagonal
+    if (r !== redBall.row && c !== redBall.col) return false;
 
     const stepR = r === redBall.row ? 0 : r > redBall.row ? 1 : -1;
     const stepC = c === redBall.col ? 0 : c > redBall.col ? 1 : -1;
@@ -124,7 +122,6 @@ export function BoardView({
     return !fixedSet.has(endKey) && !blockCells.has(endKey);
   };
 
-  // Compact gaps for larger grids (7x7, 8x8)
   const gapClass = gridSize >= 7 ? "gap-1" : "gap-1.5 sm:gap-2";
   const paddingClass = gridSize >= 7 ? "p-1.5 sm:p-2" : "p-2 sm:p-3";
 
@@ -201,7 +198,7 @@ export function BoardView({
       {/* Floating Elements Layer: Blocks & Red Ball */}
       <div className="absolute inset-0 p-3 sm:p-4 pointer-events-none">
         <div className="relative w-full h-full">
-          {/* Obstacle Blocks */}
+          {/* Obstacle Blocks (Move in all 4 directions: left, right, up, down) */}
           {blocks.map((b) => {
             const widthPct = b.orientation === "h" ? (b.length / gridSize) * 100 : (1 / gridSize) * 100;
             const heightPct = b.orientation === "v" ? (b.length / gridSize) * 100 : (1 / gridSize) * 100;
@@ -223,42 +220,11 @@ export function BoardView({
                   top: `calc(${topPct}% + ${posOffset})`,
                   backgroundColor: b.color,
                 }}
-                className="absolute rounded-xl shadow-lg border border-white/25 pointer-events-auto cursor-grab active:cursor-grabbing transition-all duration-200 flex items-center justify-between p-1 select-none"
+                className="absolute rounded-xl shadow-lg border border-white/25 pointer-events-auto cursor-grab active:cursor-grabbing transition-all duration-200 flex flex-col items-center justify-between p-1 select-none overflow-hidden"
               >
-                {/* Visual affordance: directional grips & arrows */}
-                {b.orientation === "h" ? (
+                {b.orientation === "v" ? (
                   <>
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onMoveBlock?.(b.id, "left");
-                      }}
-                      className="w-4 h-4 sm:w-5 sm:h-5 rounded-md bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[10px] sm:text-xs font-bold transition-transform active:scale-90"
-                      aria-label="Slide Left"
-                    >
-                      ◀
-                    </button>
-                    <div className="flex gap-0.5 opacity-60">
-                      <div className="w-1 h-2.5 rounded-full bg-white/60" />
-                      <div className="w-1 h-2.5 rounded-full bg-white/60" />
-                    </div>
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onMoveBlock?.(b.id, "right");
-                      }}
-                      className="w-4 h-4 sm:w-5 sm:h-5 rounded-md bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[10px] sm:text-xs font-bold transition-transform active:scale-90"
-                      aria-label="Slide Right"
-                    >
-                      ▶
-                    </button>
-                  </>
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-between">
+                    {/* Up arrow */}
                     <button
                       type="button"
                       disabled={disabled}
@@ -266,15 +232,42 @@ export function BoardView({
                         e.stopPropagation();
                         onMoveBlock?.(b.id, "up");
                       }}
-                      className="w-4 h-4 sm:w-5 sm:h-5 rounded-md bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[10px] sm:text-xs font-bold transition-transform active:scale-90"
+                      className="w-5 h-4 rounded bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[10px] font-bold active:scale-90"
                       aria-label="Slide Up"
                     >
                       ▲
                     </button>
-                    <div className="flex flex-col gap-0.5 opacity-60">
-                      <div className="w-2.5 h-1 rounded-full bg-white/60" />
-                      <div className="w-2.5 h-1 rounded-full bg-white/60" />
+
+                    {/* Middle: Left and Right buttons */}
+                    <div className="flex items-center justify-between w-full px-0.5 my-auto">
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMoveBlock?.(b.id, "left");
+                        }}
+                        className="w-4 h-5 rounded bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[9px] font-bold active:scale-90"
+                        aria-label="Slide Left"
+                      >
+                        ◀
+                      </button>
+                      <div className="w-1.5 h-1.5 rounded-full bg-white/50" />
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMoveBlock?.(b.id, "right");
+                        }}
+                        className="w-4 h-5 rounded bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[9px] font-bold active:scale-90"
+                        aria-label="Slide Right"
+                      >
+                        ▶
+                      </button>
                     </div>
+
+                    {/* Down arrow */}
                     <button
                       type="button"
                       disabled={disabled}
@@ -282,10 +275,68 @@ export function BoardView({
                         e.stopPropagation();
                         onMoveBlock?.(b.id, "down");
                       }}
-                      className="w-4 h-4 sm:w-5 sm:h-5 rounded-md bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[10px] sm:text-xs font-bold transition-transform active:scale-90"
+                      className="w-5 h-4 rounded bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[10px] font-bold active:scale-90"
                       aria-label="Slide Down"
                     >
                       ▼
+                    </button>
+                  </>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-between">
+                    {/* Left arrow */}
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMoveBlock?.(b.id, "left");
+                      }}
+                      className="w-4 h-5 rounded bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[10px] font-bold active:scale-90"
+                      aria-label="Slide Left"
+                    >
+                      ◀
+                    </button>
+
+                    {/* Center: Up and Down buttons */}
+                    <div className="flex flex-col items-center justify-between h-full py-0.5 mx-auto">
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMoveBlock?.(b.id, "up");
+                        }}
+                        className="w-5 h-4 rounded bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[9px] font-bold active:scale-90"
+                        aria-label="Slide Up"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMoveBlock?.(b.id, "down");
+                        }}
+                        className="w-5 h-4 rounded bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[9px] font-bold active:scale-90"
+                        aria-label="Slide Down"
+                      >
+                        ▼
+                      </button>
+                    </div>
+
+                    {/* Right arrow */}
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMoveBlock?.(b.id, "right");
+                      }}
+                      className="w-4 h-5 rounded bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[10px] font-bold active:scale-90"
+                      aria-label="Slide Right"
+                    >
+                      ▶
                     </button>
                   </div>
                 )}

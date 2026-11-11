@@ -7,9 +7,11 @@
  * every animation frame, and every deadline is an absolute timestamp.
  *
  * Moving in a straight line (horizontally or vertically) counts as ONE move.
+ * Both the ball and obstacle blocks can move in all 4 directions (left, right, up, down / front, back).
  */
 import { attemptSeed, type Cell } from "@cogniarena/game-core";
 import {
+  canBlockMove,
   generateLevel,
   getBlockCells,
   nextLevel,
@@ -220,17 +222,15 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
       // Must be in straight line (same row or same col)
       const dr = tr - phase.ball.row;
       const dc = tc - phase.ball.col;
-      if (dr !== 0 && dc !== 0) return state; // Diagonal not permitted
-      if (dr === 0 && dc === 0) return state; // Same cell
+      if (dr !== 0 && dc !== 0) return state;
+      if (dr === 0 && dc === 0) return state;
 
       const stepR = dr === 0 ? 0 : dr > 0 ? 1 : -1;
       const stepC = dc === 0 ? 0 : dc > 0 ? 1 : -1;
 
-      // Direction label
       const direction: "up" | "down" | "left" | "right" =
         stepR === -1 ? "up" : stepR === 1 ? "down" : stepC === -1 ? "left" : "right";
 
-      // Verify clear line of sight
       const fixedSet = new Set(fixedBlocks.map((f) => `${f.row},${f.col}`));
       const blockCells = new Set<string>();
       phase.blocks.flatMap(getBlockCells).forEach((c) => blockCells.add(`${c.row},${c.col}`));
@@ -240,13 +240,12 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
       while (checkR !== tr || checkC !== tc) {
         const key = `${checkR},${checkC}`;
         if (fixedSet.has(key) || blockCells.has(key)) {
-          return state; // Path blocked
+          return state;
         }
         checkR += stepR;
         checkC += stepC;
       }
 
-      // Final cell check
       const endKey = `${tr},${tc}`;
       if (fixedSet.has(endKey) || blockCells.has(endKey)) {
         return state;
@@ -261,45 +260,25 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
       if (blockIndex === -1) return state;
       const b = phase.blocks[blockIndex]!;
 
-      // Validate direction compatibility
-      if (b.orientation === "h" && event.direction !== "left" && event.direction !== "right") return state;
-      if (b.orientation === "v" && event.direction !== "up" && event.direction !== "down") return state;
-
       const { gridSize, target, fixedBlocks } = state.level;
-      const occupiedByOtherBlocks = new Set<string>();
+      const otherBlocksSet = new Set<string>();
       for (let i = 0; i < phase.blocks.length; i++) {
         if (i !== blockIndex) {
-          getBlockCells(phase.blocks[i]!).forEach((c) => occupiedByOtherBlocks.add(`${c.row},${c.col}`));
+          getBlockCells(phase.blocks[i]!).forEach((c) => otherBlocksSet.add(`${c.row},${c.col}`));
         }
       }
       const fixedSet = new Set(fixedBlocks.map((f) => `${f.row},${f.col}`));
 
-      const isCellFreeForBlock = (r: number, c: number): boolean => {
-        if (r < 0 || r >= gridSize || c < 0 || c >= gridSize) return false;
-        if (r === phase.ball.row && c === phase.ball.col) return false;
-        if (r === target.row && c === target.col) return false;
-        const key = `${r},${c}`;
-        if (fixedSet.has(key)) return false;
-        if (occupiedByOtherBlocks.has(key)) return false;
-        return true;
-      };
+      const dr = event.direction === "up" ? -1 : event.direction === "down" ? 1 : 0;
+      const dc = event.direction === "left" ? -1 : event.direction === "right" ? 1 : 0;
 
-      let newRow = b.row;
-      let newCol = b.col;
-
-      if (event.direction === "left") {
-        if (!isCellFreeForBlock(b.row, b.col - 1)) return state;
-        newCol = b.col - 1;
-      } else if (event.direction === "right") {
-        if (!isCellFreeForBlock(b.row, b.col + b.length)) return state;
-        newCol = b.col + 1;
-      } else if (event.direction === "up") {
-        if (!isCellFreeForBlock(b.row - 1, b.col)) return state;
-        newRow = b.row - 1;
-      } else if (event.direction === "down") {
-        if (!isCellFreeForBlock(b.row + b.length, b.col)) return state;
-        newRow = b.row + 1;
+      // Obstacle blocks can move in all 4 directions (left, right, up, down / front, back)
+      if (!canBlockMove(b, dr, dc, phase.ball, target, gridSize, fixedSet, otherBlocksSet)) {
+        return state;
       }
+
+      const newRow = b.row + dr;
+      const newCol = b.col + dc;
 
       const nextBlocks = phase.blocks.map((blk, idx) =>
         idx === blockIndex ? { ...blk, row: newRow, col: newCol } : blk
@@ -417,7 +396,6 @@ function applyBallStraightMove(
 
   const nextHistory = [...phase.historyStates, { ball: phase.ball, blocks: phase.blocks }];
 
-  // Check if ball reached target
   if (sameCell(destination, target)) {
     const responses: MotionMazeResponses = {
       completed: true,

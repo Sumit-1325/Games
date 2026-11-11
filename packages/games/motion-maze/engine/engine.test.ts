@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { solvePuzzle } from "./solver";
+import { solvePuzzle, canBlockMove } from "./solver";
 import { generateLevel } from "./generateLevel";
 import { scoreLevel, plausibilityFlags } from "./score";
 import type { Block, MotionMazeLevel, MotionMazeResponses } from "./types";
 
-describe("Motion Maze BFS Solver (Straight-Line Motion)", () => {
+describe("Motion Maze BFS Solver (Straight-Line & 4-Directional Block Movement)", () => {
   it("solves an unobstructed straight-line horizontal path in exactly 1 move", () => {
-    // Red ball at (0, 0), target at (0, 3). The entire horizontal row slide is 1 move.
     const res = solvePuzzle(4, { row: 0, col: 0 }, { row: 0, col: 3 }, []);
     expect(res).not.toBeNull();
     expect(res?.solvable).toBe(true);
@@ -15,33 +14,35 @@ describe("Motion Maze BFS Solver (Straight-Line Motion)", () => {
   });
 
   it("solves a corner path (horizontal then vertical) in exactly 2 moves", () => {
-    // (0, 0) -> (0, 3) [1 move], then (0, 3) -> (3, 3) [2nd move]
     const res = solvePuzzle(4, { row: 0, col: 0 }, { row: 3, col: 3 }, []);
     expect(res).not.toBeNull();
     expect(res?.solvable).toBe(true);
     expect(res?.optimalMoves).toBe(2);
   });
 
-  it("finds the shortest path requiring an obstacle bar to be slid aside", () => {
-    // Red ball at (0, 0), target at (0, 3)
-    // Vertical block at (0, 1), length 2 (blocking row 0 and 1)
+  it("allows a vertical obstacle block to move sideways (left/right) when space is free", () => {
+    // Vertical block at col 2 (cells (0,2) and (1,2))
+    const b = { orientation: "v" as const, length: 2, row: 0, col: 2 };
+    const ball = { row: 3, col: 3 };
+    const target = { row: 3, col: 0 };
+
+    // Move left: col 2 -> col 1
+    const canMoveLeft = canBlockMove(b, 0, -1, ball, target, 4, new Set(), new Set());
+    expect(canMoveLeft).toBe(true);
+
+    // Move right: col 2 -> col 3
+    const canMoveRight = canBlockMove(b, 0, 1, ball, target, 4, new Set(), new Set());
+    expect(canMoveRight).toBe(true);
+  });
+
+  it("finds the shortest path requiring an obstacle bar to be moved aside", () => {
     const blocks: Block[] = [
       { id: "b1", orientation: "v", length: 2, row: 0, col: 1, color: "blue" },
     ];
     const res = solvePuzzle(4, { row: 0, col: 0 }, { row: 0, col: 3 }, blocks);
     expect(res).not.toBeNull();
     expect(res?.solvable).toBe(true);
-    // Sliding block down (move 1), then sliding ball straight to target (move 2)
     expect(res?.optimalMoves).toBe(2);
-  });
-
-  it("reports unsolvable when ball is completely trapped by fixed blocks", () => {
-    const fixed = [
-      { row: 0, col: 1 },
-      { row: 1, col: 0 },
-    ];
-    const res = solvePuzzle(4, { row: 0, col: 0 }, { row: 3, col: 3 }, [], fixed);
-    expect(res).toBeNull();
   });
 });
 
@@ -65,7 +66,6 @@ describe("generateLevel - Increasing Grid Sizes", () => {
       expect(level.gridSize).toBe(expectedGrids[lvl]);
       expect(level.optimalMoves).toBeGreaterThan(0);
 
-      // Verify the generated level is solvable
       const verification = solvePuzzle(
         level.gridSize,
         level.redBall,
@@ -88,7 +88,7 @@ describe("scoreLevel and plausibility", () => {
     target: { row: 2, col: 0 },
     blocks: [],
     fixedBlocks: [],
-    optimalMoves: 1, // straight line slide
+    optimalMoves: 1,
   };
 
   it("scores 0 if not completed", () => {

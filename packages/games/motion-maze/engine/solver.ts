@@ -45,8 +45,33 @@ function encodeState(ball: Cell, blocks: BlockPos[]): string {
   return s;
 }
 
+/** Check if an entire block can move by (dr, dc) without collision */
+export function canBlockMove(
+  b: { orientation: "h" | "v"; length: number; row: number; col: number },
+  dr: number,
+  dc: number,
+  ball: Cell,
+  target: Cell,
+  gridSize: number,
+  fixedSet: Set<string>,
+  otherBlocksSet: Set<string>
+): boolean {
+  for (const c of getBlockCells(b)) {
+    const nr = c.row + dr;
+    const nc = c.col + dc;
+    if (nr < 0 || nr >= gridSize || nc < 0 || nc >= gridSize) return false;
+    if (nr === ball.row && nc === ball.col) return false;
+    if (nr === target.row && nc === target.col) return false;
+    const key = `${nr},${nc}`;
+    if (fixedSet.has(key)) return false;
+    if (otherBlocksSet.has(key)) return false;
+  }
+  return true;
+}
+
 /**
- * Solves Motion Maze where moving a piece in a straight line counts as ONE move.
+ * Solves Motion Maze where both the ball and obstacle blocks can move in all 4 directions
+ * (left, right, up, down / front, back) when space is available.
  */
 export function solvePuzzle(
   gridSize: number,
@@ -86,6 +111,13 @@ export function solvePuzzle(
 
   let head = 0;
 
+  const ALL_DIRS: { dir: "up" | "down" | "left" | "right"; dr: number; dc: number }[] = [
+    { dir: "up", dr: -1, dc: 0 },
+    { dir: "down", dr: 1, dc: 0 },
+    { dir: "left", dr: 0, dc: -1 },
+    { dir: "right", dr: 0, dc: 1 },
+  ];
+
   while (head < queue.length) {
     if (visited.size > maxStates) {
       return null;
@@ -118,44 +150,21 @@ export function solvePuzzle(
       return true;
     };
 
-    const isFreeForBlock = (r: number, c: number): boolean => {
-      if (r < 0 || r >= gridSize || c < 0 || c >= gridSize) return false;
-      if (r === ball.row && c === ball.col) return false;
-      if (r === target.row && c === target.col) return false;
-      const key = `${r},${c}`;
-      if (fixedSet.has(key)) return false;
-      if (blockCellSet.has(key)) return false;
-      return true;
-    };
-
-    // 1. Straight-Line Ball Moves:
-    // A single move allows the ball to travel in a straight line along row/col.
-    const ballDirs: { dir: "up" | "down" | "left" | "right"; dr: number; dc: number }[] = [
-      { dir: "up", dr: -1, dc: 0 },
-      { dir: "down", dr: 1, dc: 0 },
-      { dir: "left", dr: 0, dc: -1 },
-      { dir: "right", dr: 0, dc: 1 },
-    ];
-
-    for (const { dir, dr, dc } of ballDirs) {
+    // 1. Straight-Line Ball Moves (in all 4 directions)
+    for (const { dir, dr, dc } of ALL_DIRS) {
       let r = ball.row + dr;
       let c = ball.col + dc;
 
-      // Collect reachable stops along this straight line
       const stops: Cell[] = [];
       while (isFreeForBall(r, c)) {
         stops.push({ row: r, col: c });
         if (r === target.row && c === target.col) {
-          // Reached the target hole! Stop ray immediately
           break;
         }
         r += dr;
         c += dc;
       }
 
-      // In straight-line motion, the player can slide all the way to the end (or target),
-      // or stop at intermediate cells along the straight line.
-      // Exploring all valid stop positions along the straight line as 1 move:
       for (const dest of stops) {
         const key = encodeState(dest, curBlocks);
         if (!visited.has(key)) {
@@ -175,72 +184,27 @@ export function solvePuzzle(
       }
     }
 
-    // 2. Straight-Line Block Moves:
-    // Sliding an obstacle bar along its permitted axis by any number of empty cells = 1 move.
+    // 2. Obstacle Block Moves (can move in all 4 directions: up, down, left, right)
     for (let bi = 0; bi < curBlocks.length; bi++) {
       const b = curBlocks[bi]!;
 
-      if (b.orientation === "h") {
-        // Slide left
-        let step = 1;
-        while (isFreeForBlock(b.row, b.col - step)) {
-          const newCol = b.col - step;
-          const nextBlocks = curBlocks.map((blk, idx) =>
-            idx === bi ? { ...blk, col: newCol } : blk
-          );
-          const key = encodeState(ball, nextBlocks);
-          if (!visited.has(key)) {
-            visited.add(key);
-            queue.push({
-              ball,
-              blocks: nextBlocks,
-              moves: [
-                ...moves,
-                {
-                  piece: b.id,
-                  direction: "left",
-                  from: { row: b.row, col: b.col },
-                  to: { row: b.row, col: newCol },
-                },
-              ],
-            });
+      // Cells occupied by ALL OTHER blocks
+      const otherBlocksSet = new Set<string>();
+      for (let j = 0; j < curBlocks.length; j++) {
+        if (j !== bi) {
+          for (const c of getBlockCells(curBlocks[j]!)) {
+            otherBlocksSet.add(`${c.row},${c.col}`);
           }
-          step++;
         }
+      }
 
-        // Slide right
-        step = 1;
-        while (isFreeForBlock(b.row, b.col + b.length + step - 1)) {
-          const newCol = b.col + step;
-          const nextBlocks = curBlocks.map((blk, idx) =>
-            idx === bi ? { ...blk, col: newCol } : blk
-          );
-          const key = encodeState(ball, nextBlocks);
-          if (!visited.has(key)) {
-            visited.add(key);
-            queue.push({
-              ball,
-              blocks: nextBlocks,
-              moves: [
-                ...moves,
-                {
-                  piece: b.id,
-                  direction: "right",
-                  from: { row: b.row, col: b.col },
-                  to: { row: b.row, col: newCol },
-                },
-              ],
-            });
-          }
-          step++;
-        }
-      } else {
-        // Vertical: slide up
+      for (const { dir, dr, dc } of ALL_DIRS) {
         let step = 1;
-        while (isFreeForBlock(b.row - step, b.col)) {
-          const newRow = b.row - step;
+        while (canBlockMove(b, dr * step, dc * step, ball, target, gridSize, fixedSet, otherBlocksSet)) {
+          const newRow = b.row + dr * step;
+          const newCol = b.col + dc * step;
           const nextBlocks = curBlocks.map((blk, idx) =>
-            idx === bi ? { ...blk, row: newRow } : blk
+            idx === bi ? { ...blk, row: newRow, col: newCol } : blk
           );
           const key = encodeState(ball, nextBlocks);
           if (!visited.has(key)) {
@@ -252,36 +216,9 @@ export function solvePuzzle(
                 ...moves,
                 {
                   piece: b.id,
-                  direction: "up",
+                  direction: dir,
                   from: { row: b.row, col: b.col },
-                  to: { row: newRow, col: b.col },
-                },
-              ],
-            });
-          }
-          step++;
-        }
-
-        // Slide down
-        step = 1;
-        while (isFreeForBlock(b.row + b.length + step - 1, b.col)) {
-          const newRow = b.row + step;
-          const nextBlocks = curBlocks.map((blk, idx) =>
-            idx === bi ? { ...blk, row: newRow } : blk
-          );
-          const key = encodeState(ball, nextBlocks);
-          if (!visited.has(key)) {
-            visited.add(key);
-            queue.push({
-              ball,
-              blocks: nextBlocks,
-              moves: [
-                ...moves,
-                {
-                  piece: b.id,
-                  direction: "down",
-                  from: { row: b.row, col: b.col },
-                  to: { row: newRow, col: b.col },
+                  to: { row: newRow, col: newCol },
                 },
               ],
             });

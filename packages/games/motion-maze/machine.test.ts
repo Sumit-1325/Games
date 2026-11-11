@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { COUNTDOWN_MS, FEEDBACK_MS, createSession, reduce } from "./machine";
 
-describe("Motion Maze machine (Straight-Line Slides)", () => {
+describe("Motion Maze machine (Straight-Line Slides & 4-Way Block Motion)", () => {
   it("starts in idle, transitions through countdown to playing", () => {
     let s = createSession({ seed: "test-seed", durationMs: 60000 });
     expect(s.phase.name).toBe("idle");
@@ -24,7 +24,6 @@ describe("Motion Maze machine (Straight-Line Slides)", () => {
     expect(s.phase.name).toBe("playing");
 
     if (s.phase.name === "playing") {
-      // Clear obstacles and place ball at (0, 0)
       s = {
         ...s,
         level: { ...s.level, blocks: [], fixedBlocks: [], target: { row: 3, col: 3 } },
@@ -35,17 +34,49 @@ describe("Motion Maze machine (Straight-Line Slides)", () => {
         },
       };
 
-      // Moving right slides across the entire row to col (gridSize - 1) in 1 move
       s = reduce(s, { type: "MOVE_BALL", direction: "right", now: 5000 });
       if (s.phase.name === "playing") {
         expect(s.phase.moves.length).toBe(1);
         expect(s.phase.ball.row).toBe(0);
         expect(s.phase.ball.col).toBe(s.level.gridSize - 1);
 
-        // Moving up from row 0 should be blocked by boundary (0 moves added)
         s = reduce(s, { type: "MOVE_BALL", direction: "up", now: 6000 });
         if (s.phase.name === "playing") {
           expect(s.phase.moves.length).toBe(1);
+        }
+      }
+    }
+  });
+
+  it("allows obstacle blocks to move in all 4 directions and backward", () => {
+    let s = createSession({ seed: "test-seed", durationMs: null });
+    s = reduce(s, { type: "START", now: 1000 });
+    s = reduce(s, { type: "TICK", now: 1000 + COUNTDOWN_MS });
+
+    if (s.phase.name === "playing") {
+      // Create a vertical block at (0, 2)
+      const block = { id: "b1", orientation: "v" as const, length: 2, row: 0, col: 2, color: "#3b82f6" };
+      s = {
+        ...s,
+        level: { ...s.level, blocks: [block], fixedBlocks: [], target: { row: 3, col: 3 } },
+        phase: {
+          ...s.phase,
+          ball: { row: 3, col: 0 },
+          blocks: [block],
+        },
+      };
+
+      // Move vertical block LEFT (sideways to col 1)
+      s = reduce(s, { type: "MOVE_BLOCK", id: "b1", direction: "left", now: 5000 });
+      if (s.phase.name === "playing") {
+        expect(s.phase.blocks[0]!.col).toBe(1);
+        expect(s.phase.moves.length).toBe(1);
+
+        // Move vertical block BACKWARD (right back to col 2)
+        s = reduce(s, { type: "MOVE_BLOCK", id: "b1", direction: "right", now: 6000 });
+        if (s.phase.name === "playing") {
+          expect(s.phase.blocks[0]!.col).toBe(2);
+          expect(s.phase.moves.length).toBe(2);
         }
       }
     }
@@ -64,12 +95,10 @@ describe("Motion Maze machine (Straight-Line Slides)", () => {
         phase: { ...s.phase, blocks: [] },
       };
 
-      // Move right in straight line
       s = reduce(s, { type: "MOVE_BALL", direction: "right", now: 5000 });
       if (s.phase.name === "playing") {
         expect(s.phase.moves.length).toBe(1);
 
-        // UNDO restores initial position
         s = reduce(s, { type: "UNDO" });
         if (s.phase.name === "playing") {
           expect(s.phase.ball).toEqual(initialBall);
@@ -101,7 +130,6 @@ describe("Motion Maze machine (Straight-Line Slides)", () => {
         },
       };
 
-      // Slide right from (0, 0) directly into target at (0, 3) in 1 move
       s = reduce(s, { type: "MOVE_BALL", direction: "right", now: 6000 });
       expect(s.phase.name).toBe("feedback");
       if (s.phase.name === "feedback") {
@@ -110,11 +138,10 @@ describe("Motion Maze machine (Straight-Line Slides)", () => {
         expect(s.phase.submission.responses.moves.length).toBe(1);
       }
 
-      // Next level after FEEDBACK_MS
       s = reduce(s, { type: "TICK", now: 6000 + FEEDBACK_MS });
       expect(s.phase.name).toBe("playing");
       expect(s.level.level).toBe(2);
-      expect(s.level.gridSize).toBe(5); // Level 2 is 5x5
+      expect(s.level.gridSize).toBe(5);
     }
   });
 });

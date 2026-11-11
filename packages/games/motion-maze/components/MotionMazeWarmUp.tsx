@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Cell } from "@cogniarena/game-core";
-import { sameCell } from "../engine/solver";
+import { canBlockMove, sameCell } from "../engine/solver";
 import type { Block } from "../engine/types";
 import { BoardView } from "./BoardView";
 
@@ -24,6 +24,7 @@ export function MotionMazeWarmUp({
   // State for the player's "try" puzzle
   const [tryBall, setTryBall] = useState<Cell>({ row: 1, col: 0 });
   const [tryBarRow, setTryBarRow] = useState(0);
+  const [tryBarCol, setTryBarCol] = useState(2);
 
   // Scripted animation for "show"
   useEffect(() => {
@@ -33,8 +34,8 @@ export function MotionMazeWarmUp({
     setDemoBarRow(0);
     setDemoBall({ row: 0, col: 0 });
 
-    const t1 = setTimeout(() => setDemoBarRow(2), 1200); // 1 move: slide bar down
-    const t2 = setTimeout(() => setDemoBall({ row: 0, col: 3 }), 2400); // 1 move: straight-line slide across to target
+    const t1 = setTimeout(() => setDemoBarRow(2), 1200); // slide bar down
+    const t2 = setTimeout(() => setDemoBall({ row: 0, col: 3 }), 2400); // slide ball across row to target
 
     return () => {
       clearTimeout(t1);
@@ -62,7 +63,7 @@ export function MotionMazeWarmUp({
       orientation: "v",
       length: 2,
       row: tryBarRow,
-      col: 2,
+      col: tryBarCol,
       color: "#10b981",
     },
   ];
@@ -81,7 +82,7 @@ export function MotionMazeWarmUp({
       const nextC = nc + dc;
       if (nextR < 0 || nextR >= 4 || nextC < 0 || nextC >= 4) break;
       // Block collision
-      if (nextC === 2 && (nextR === tryBarRow || nextR === tryBarRow + 1)) break;
+      if (nextC === tryBarCol && (nextR === tryBarRow || nextR === tryBarRow + 1)) break;
 
       nr = nextR;
       nc = nextC;
@@ -99,18 +100,18 @@ export function MotionMazeWarmUp({
 
   const handleTryMoveBlock = (id: string, dir: "up" | "down" | "left" | "right") => {
     if (step !== "try") return;
-    if (dir === "down" && tryBarRow + 2 < 4) {
-      if (tryBall.col === 2 && (tryBall.row === tryBarRow + 1 || tryBall.row === tryBarRow + 2)) return;
-      setTryBarRow(tryBarRow + 1);
-    } else if (dir === "up" && tryBarRow > 0) {
-      if (tryBall.col === 2 && tryBall.row === tryBarRow - 1) return;
-      setTryBarRow(tryBarRow - 1);
+    const dr = dir === "up" ? -1 : dir === "down" ? 1 : 0;
+    const dc = dir === "left" ? -1 : dir === "right" ? 1 : 0;
+
+    const block = { orientation: "v" as const, length: 2, row: tryBarRow, col: tryBarCol };
+    if (canBlockMove(block, dr, dc, tryBall, tryTarget, 4, new Set(), new Set())) {
+      setTryBarRow(tryBarRow + dr);
+      setTryBarCol(tryBarCol + dc);
     }
   };
 
   const handleTryMoveBallTo = (cell: Cell) => {
     if (step !== "try") return;
-    // Check line of sight
     if (cell.row === tryBall.row) {
       const dir = cell.col > tryBall.col ? "right" : "left";
       handleTryMoveBall(dir);
@@ -131,9 +132,9 @@ export function MotionMazeWarmUp({
       <div className="rounded-xl bg-slate-900 border border-slate-800 p-3 w-full">
         <p className="text-sm text-zinc-200">
           {step === "show" &&
-            "Watch: 1 move slides the blue bar down. 1 move slides the red ball across the row directly into the target! Straight-line slides count as 1 move."}
+            "Watch: 1 move slides the blue bar. 1 move slides the red ball across the row directly into the target!"}
           {step === "try" &&
-            "Your turn: Slide the green bar down, then slide the red ball into the black target in 1 straight line!"}
+            "Your turn: Obstacles can move in all 4 directions (left, right, up, down). Move the green bar, then slide the red ball to the black target!"}
           {step === "answered" &&
             "Well done! As levels advance, grids grow from 4×4 up to 8×8 with more obstacles. Reach the target in the fewest moves!"}
         </p>
@@ -179,7 +180,7 @@ export function MotionMazeWarmUp({
 
         {step === "try" && (
           <p className="text-xs text-zinc-400">
-            Click the arrows on the green bar to slide it, then click or swipe the ball toward the target.
+            Click any arrow on the green bar (or drag it) to move it, then slide the ball toward the target.
           </p>
         )}
 
