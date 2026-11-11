@@ -6,8 +6,8 @@
  * `reduce(state, event)` has no React and no timers: the UI sends TICK(now)
  * every animation frame, and every deadline is an absolute timestamp.
  *
- * Moving in a straight line (horizontally or vertically) counts as ONE move.
- * Both the ball and obstacle blocks can move in all 4 directions (left, right, up, down / front, back).
+ * Both the red ball and obstacle blocks slide in straight lines until blocked,
+ * and every slide counts as ONE move.
  */
 import { attemptSeed, type Cell } from "@cogniarena/game-core";
 import {
@@ -173,7 +173,6 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
       const dr = event.direction === "up" ? -1 : event.direction === "down" ? 1 : 0;
       const dc = event.direction === "left" ? -1 : event.direction === "right" ? 1 : 0;
 
-      // Slide in a straight line until hitting obstacle or grid edge (or target)
       const { gridSize, target, fixedBlocks } = state.level;
       const fixedSet = new Set(fixedBlocks.map((f) => `${f.row},${f.col}`));
       const blockCells = new Set<string>();
@@ -196,13 +195,11 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
         curR = nr;
         curC = nc;
 
-        // If target hole is hit along the path, stop right in the target!
         if (nr === target.row && nc === target.col) {
           break;
         }
       }
 
-      // No movement possible
       if (lastFreeR === phase.ball.row && lastFreeC === phase.ball.col) {
         return state;
       }
@@ -216,10 +213,8 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
       const { gridSize, fixedBlocks } = state.level;
       const { row: tr, col: tc } = event.cell;
 
-      // Bounds check
       if (tr < 0 || tr >= gridSize || tc < 0 || tc >= gridSize) return state;
 
-      // Must be in straight line (same row or same col)
       const dr = tr - phase.ball.row;
       const dc = tc - phase.ball.col;
       if (dr !== 0 && dc !== 0) return state;
@@ -272,13 +267,27 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
       const dr = event.direction === "up" ? -1 : event.direction === "down" ? 1 : 0;
       const dc = event.direction === "left" ? -1 : event.direction === "right" ? 1 : 0;
 
-      // Obstacle blocks can move in all 4 directions (left, right, up, down / front, back)
-      if (!canBlockMove(b, dr, dc, phase.ball, target, gridSize, fixedSet, otherBlocksSet)) {
-        return state;
+      // Obstacle slides in the straight line as far as possible until blocked (like the ball)
+      let step = 0;
+      while (
+        canBlockMove(
+          b,
+          dr * (step + 1),
+          dc * (step + 1),
+          phase.ball,
+          target,
+          gridSize,
+          fixedSet,
+          otherBlocksSet
+        )
+      ) {
+        step++;
       }
 
-      const newRow = b.row + dr;
-      const newCol = b.col + dc;
+      if (step === 0) return state; // Blocked, cannot slide
+
+      const newRow = b.row + dr * step;
+      const newCol = b.col + dc * step;
 
       const nextBlocks = phase.blocks.map((blk, idx) =>
         idx === blockIndex ? { ...blk, row: newRow, col: newCol } : blk
@@ -291,6 +300,7 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
         to: { row: newRow, col: newCol },
       };
 
+      // Moving the obstacle counts as ONE move in moves array
       return {
         ...state,
         phase: {

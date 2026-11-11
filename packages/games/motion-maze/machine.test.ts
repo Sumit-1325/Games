@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { COUNTDOWN_MS, FEEDBACK_MS, createSession, reduce } from "./machine";
 
-describe("Motion Maze machine (Straight-Line Slides & 4-Way Block Motion)", () => {
+describe("Motion Maze machine (Straight-Line Slides & Block Sliding)", () => {
   it("starts in idle, transitions through countdown to playing", () => {
     let s = createSession({ seed: "test-seed", durationMs: 60000 });
     expect(s.phase.name).toBe("idle");
@@ -48,13 +48,12 @@ describe("Motion Maze machine (Straight-Line Slides & 4-Way Block Motion)", () =
     }
   });
 
-  it("allows obstacle blocks to move in all 4 directions and backward", () => {
+  it("slides obstacle blocks like a ball until blocked and counts each slide as a move", () => {
     let s = createSession({ seed: "test-seed", durationMs: null });
     s = reduce(s, { type: "START", now: 1000 });
     s = reduce(s, { type: "TICK", now: 1000 + COUNTDOWN_MS });
 
     if (s.phase.name === "playing") {
-      // Create a vertical block at (0, 2)
       const block = { id: "b1", orientation: "v" as const, length: 2, row: 0, col: 2, color: "#3b82f6" };
       s = {
         ...s,
@@ -66,16 +65,16 @@ describe("Motion Maze machine (Straight-Line Slides & 4-Way Block Motion)", () =
         },
       };
 
-      // Move vertical block LEFT (sideways to col 1)
+      // Slide vertical block LEFT all the way to col 0 in 1 move
       s = reduce(s, { type: "MOVE_BLOCK", id: "b1", direction: "left", now: 5000 });
       if (s.phase.name === "playing") {
-        expect(s.phase.blocks[0]!.col).toBe(1);
+        expect(s.phase.blocks[0]!.col).toBe(0);
         expect(s.phase.moves.length).toBe(1);
 
-        // Move vertical block BACKWARD (right back to col 2)
+        // Slide vertical block BACKWARD (right) all the way to col 3 in 1 move
         s = reduce(s, { type: "MOVE_BLOCK", id: "b1", direction: "right", now: 6000 });
         if (s.phase.name === "playing") {
-          expect(s.phase.blocks[0]!.col).toBe(2);
+          expect(s.phase.blocks[0]!.col).toBe(s.level.gridSize - 1);
           expect(s.phase.moves.length).toBe(2);
         }
       }

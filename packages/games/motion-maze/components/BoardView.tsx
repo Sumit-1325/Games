@@ -29,53 +29,55 @@ export function BoardView({
   disabled = false,
 }: BoardViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [selectedPiece, setSelectedPiece] = useState<"ball" | string>("ball");
   const [dragInfo, setDragInfo] = useState<{
     id: string | "ball";
     startX: number;
     startY: number;
+    triggered: boolean;
   } | null>(null);
 
-  // Keyboard navigation for Red Ball
+  // Keyboard navigation: controls either the red ball or currently selected obstacle
   useEffect(() => {
-    if (disabled || !onMoveBall) return;
+    if (disabled) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") {
+      let dir: "up" | "down" | "left" | "right" | null = null;
+      if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") dir = "up";
+      else if (e.key === "ArrowDown" || e.key === "s" || e.key === "S") dir = "down";
+      else if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") dir = "left";
+      else if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") dir = "right";
+
+      if (dir) {
         e.preventDefault();
-        onMoveBall("up");
-      } else if (e.key === "ArrowDown" || e.key === "s" || e.key === "S") {
-        e.preventDefault();
-        onMoveBall("down");
-      } else if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
-        e.preventDefault();
-        onMoveBall("left");
-      } else if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
-        e.preventDefault();
-        onMoveBall("right");
+        if (selectedPiece === "ball") {
+          onMoveBall?.(dir);
+        } else {
+          onMoveBlock?.(selectedPiece, dir);
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [disabled, onMoveBall]);
+  }, [disabled, selectedPiece, onMoveBall, onMoveBlock]);
 
-  // Pointer drag handling for both ball and obstacle blocks in all 4 directions
+  // Pointer drag/swipe gesture: slides piece all the way in the dragged direction
   const handlePointerDown = (id: string | "ball", e: React.PointerEvent) => {
     if (disabled) return;
+    setSelectedPiece(id);
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
     setDragInfo({
       id,
       startX: e.clientX,
       startY: e.clientY,
+      triggered: false,
     });
   };
 
-  const handlePointerUp = (e: React.PointerEvent) => {
-    if (!dragInfo || disabled) {
-      setDragInfo(null);
-      return;
-    }
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!dragInfo || dragInfo.triggered || disabled) return;
     const dx = e.clientX - dragInfo.startX;
     const dy = e.clientY - dragInfo.startY;
-    const threshold = 16;
+    const threshold = 14;
 
     if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
       const dir: "left" | "right" | "up" | "down" =
@@ -87,12 +89,17 @@ export function BoardView({
           ? "down"
           : "up";
 
+      setDragInfo((prev) => (prev ? { ...prev, triggered: true } : null));
+
       if (dragInfo.id === "ball") {
         onMoveBall?.(dir);
       } else {
         onMoveBlock?.(dragInfo.id, dir);
       }
     }
+  };
+
+  const handlePointerUp = () => {
     setDragInfo(null);
   };
 
@@ -101,7 +108,7 @@ export function BoardView({
   blocks.flatMap(getBlockCells).forEach((c) => blockCells.add(`${c.row},${c.col}`));
   const fixedSet = new Set(fixedBlocks.map((f) => `${f.row},${f.col}`));
 
-  // Check if a cell is in straight line of sight from the red ball
+  // Check line of sight from the red ball
   const isReachableLineOfSight = (r: number, c: number): boolean => {
     if (r === redBall.row && c === redBall.col) return false;
     if (r !== redBall.row && c !== redBall.col) return false;
@@ -130,6 +137,7 @@ export function BoardView({
       ref={containerRef}
       data-tutorial="grid"
       className={`relative w-full max-w-[440px] aspect-square mx-auto ${paddingClass} rounded-2xl bg-slate-900/90 dark:bg-zinc-950 border border-slate-700/60 shadow-2xl select-none touch-none`}
+      onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={() => setDragInfo(null)}
     >
@@ -151,6 +159,7 @@ export function BoardView({
               <div
                 key={`cell-${r}-${c}`}
                 onClick={() => {
+                  setSelectedPiece("ball");
                   if (canTap && onMoveBallTo) {
                     onMoveBallTo({ row: r, col: c });
                   }
@@ -185,7 +194,7 @@ export function BoardView({
                   </div>
                 )}
 
-                {/* Line of Sight Path Marker Dot */}
+                {/* Path Dot Indicator */}
                 {canTap && !isTarget && (
                   <div className="w-1.5 h-1.5 rounded-full bg-indigo-400/40 pointer-events-none" />
                 )}
@@ -195,10 +204,10 @@ export function BoardView({
         )}
       </div>
 
-      {/* Floating Elements Layer: Blocks & Red Ball */}
+      {/* Floating Elements Layer: Obstacle Blocks & Red Ball */}
       <div className="absolute inset-0 p-3 sm:p-4 pointer-events-none">
         <div className="relative w-full h-full">
-          {/* Obstacle Blocks (Move in all 4 directions: left, right, up, down) */}
+          {/* Obstacle Blocks (Slide seamlessly on drag/swipe without arrow clutter) */}
           {blocks.map((b) => {
             const widthPct = b.orientation === "h" ? (b.length / gridSize) * 100 : (1 / gridSize) * 100;
             const heightPct = b.orientation === "v" ? (b.length / gridSize) * 100 : (1 / gridSize) * 100;
@@ -207,6 +216,7 @@ export function BoardView({
 
             const insetOffset = gridSize >= 7 ? "4px" : "6px";
             const posOffset = gridSize >= 7 ? "2px" : "3px";
+            const isSelected = selectedPiece === b.id;
 
             return (
               <div
@@ -220,124 +230,22 @@ export function BoardView({
                   top: `calc(${topPct}% + ${posOffset})`,
                   backgroundColor: b.color,
                 }}
-                className="absolute rounded-xl shadow-lg border border-white/25 pointer-events-auto cursor-grab active:cursor-grabbing transition-all duration-200 flex flex-col items-center justify-between p-1 select-none overflow-hidden"
+                className={`absolute rounded-xl shadow-lg border pointer-events-auto cursor-grab active:cursor-grabbing transition-all duration-200 flex items-center justify-center select-none ${
+                  isSelected ? "border-white ring-2 ring-white/60 shadow-xl" : "border-white/30"
+                }`}
               >
+                {/* Clean grip indicators (no arrows) */}
                 {b.orientation === "v" ? (
-                  <>
-                    {/* Up arrow */}
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onMoveBlock?.(b.id, "up");
-                      }}
-                      className="w-5 h-4 rounded bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[10px] font-bold active:scale-90"
-                      aria-label="Slide Up"
-                    >
-                      ▲
-                    </button>
-
-                    {/* Middle: Left and Right buttons */}
-                    <div className="flex items-center justify-between w-full px-0.5 my-auto">
-                      <button
-                        type="button"
-                        disabled={disabled}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onMoveBlock?.(b.id, "left");
-                        }}
-                        className="w-4 h-5 rounded bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[9px] font-bold active:scale-90"
-                        aria-label="Slide Left"
-                      >
-                        ◀
-                      </button>
-                      <div className="w-1.5 h-1.5 rounded-full bg-white/50" />
-                      <button
-                        type="button"
-                        disabled={disabled}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onMoveBlock?.(b.id, "right");
-                        }}
-                        className="w-4 h-5 rounded bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[9px] font-bold active:scale-90"
-                        aria-label="Slide Right"
-                      >
-                        ▶
-                      </button>
-                    </div>
-
-                    {/* Down arrow */}
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onMoveBlock?.(b.id, "down");
-                      }}
-                      className="w-5 h-4 rounded bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[10px] font-bold active:scale-90"
-                      aria-label="Slide Down"
-                    >
-                      ▼
-                    </button>
-                  </>
+                  <div className="flex flex-col gap-1.5 items-center opacity-70 pointer-events-none">
+                    <div className="w-3 h-1 rounded-full bg-white/70 shadow-sm" />
+                    <div className="w-3 h-1 rounded-full bg-white/70 shadow-sm" />
+                    <div className="w-3 h-1 rounded-full bg-white/70 shadow-sm" />
+                  </div>
                 ) : (
-                  <div className="w-full h-full flex items-center justify-between">
-                    {/* Left arrow */}
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onMoveBlock?.(b.id, "left");
-                      }}
-                      className="w-4 h-5 rounded bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[10px] font-bold active:scale-90"
-                      aria-label="Slide Left"
-                    >
-                      ◀
-                    </button>
-
-                    {/* Center: Up and Down buttons */}
-                    <div className="flex flex-col items-center justify-between h-full py-0.5 mx-auto">
-                      <button
-                        type="button"
-                        disabled={disabled}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onMoveBlock?.(b.id, "up");
-                        }}
-                        className="w-5 h-4 rounded bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[9px] font-bold active:scale-90"
-                        aria-label="Slide Up"
-                      >
-                        ▲
-                      </button>
-                      <button
-                        type="button"
-                        disabled={disabled}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onMoveBlock?.(b.id, "down");
-                        }}
-                        className="w-5 h-4 rounded bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[9px] font-bold active:scale-90"
-                        aria-label="Slide Down"
-                      >
-                        ▼
-                      </button>
-                    </div>
-
-                    {/* Right arrow */}
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onMoveBlock?.(b.id, "right");
-                      }}
-                      className="w-4 h-5 rounded bg-black/25 hover:bg-black/40 text-white/90 flex items-center justify-center text-[10px] font-bold active:scale-90"
-                      aria-label="Slide Right"
-                    >
-                      ▶
-                    </button>
+                  <div className="flex gap-1.5 items-center opacity-70 pointer-events-none">
+                    <div className="w-1 h-3 rounded-full bg-white/70 shadow-sm" />
+                    <div className="w-1 h-3 rounded-full bg-white/70 shadow-sm" />
+                    <div className="w-1 h-3 rounded-full bg-white/70 shadow-sm" />
                   </div>
                 )}
               </div>
@@ -360,7 +268,6 @@ export function BoardView({
             }}
             className="absolute rounded-full pointer-events-auto cursor-grab active:cursor-grabbing transition-all duration-200 shadow-[0_4px_16px_rgba(239,68,68,0.65)] bg-gradient-to-tr from-rose-700 via-red-500 to-rose-300 border-2 border-white/70 flex items-center justify-center"
           >
-            {/* Gloss shine */}
             <div className="w-1/3 h-1/3 rounded-full bg-white/60 -mt-1 -ml-1 blur-[0.5px]" />
           </div>
         </div>

@@ -70,8 +70,8 @@ export function canBlockMove(
 }
 
 /**
- * Solves Motion Maze where both the ball and obstacle blocks can move in all 4 directions
- * (left, right, up, down / front, back) when space is available.
+ * Solves Motion Maze where both the ball and obstacle blocks slide like a ball
+ * in straight lines until blocked, and each slide counts as ONE move.
  */
 export function solvePuzzle(
   gridSize: number,
@@ -150,14 +150,17 @@ export function solvePuzzle(
       return true;
     };
 
-    // 1. Straight-Line Ball Moves (in all 4 directions)
+    // 1. Straight-Line Ball Slide (slides until blocked or entering target)
     for (const { dir, dr, dc } of ALL_DIRS) {
       let r = ball.row + dr;
       let c = ball.col + dc;
 
-      const stops: Cell[] = [];
+      let lastR = ball.row;
+      let lastC = ball.col;
+
       while (isFreeForBall(r, c)) {
-        stops.push({ row: r, col: c });
+        lastR = r;
+        lastC = c;
         if (r === target.row && c === target.col) {
           break;
         }
@@ -165,30 +168,33 @@ export function solvePuzzle(
         c += dc;
       }
 
-      for (const dest of stops) {
+      if (lastR !== ball.row || lastC !== ball.col) {
+        const dest: Cell = { row: lastR, col: lastC };
         const key = encodeState(dest, curBlocks);
         if (!visited.has(key)) {
           visited.add(key);
-          const nextMove: MotionMazeMove = {
-            piece: "ball",
-            direction: dir,
-            from: ball,
-            to: dest,
-          };
           queue.push({
             ball: dest,
             blocks: curBlocks,
-            moves: [...moves, nextMove],
+            moves: [
+              ...moves,
+              {
+                piece: "ball",
+                direction: dir,
+                from: ball,
+                to: dest,
+              },
+            ],
           });
         }
       }
     }
 
-    // 2. Obstacle Block Moves (can move in all 4 directions: up, down, left, right)
+    // 2. Obstacle Block Slide (slides like a ball until blocked)
     for (let bi = 0; bi < curBlocks.length; bi++) {
       const b = curBlocks[bi]!;
 
-      // Cells occupied by ALL OTHER blocks
+      // Other blocks
       const otherBlocksSet = new Set<string>();
       for (let j = 0; j < curBlocks.length; j++) {
         if (j !== bi) {
@@ -199,8 +205,23 @@ export function solvePuzzle(
       }
 
       for (const { dir, dr, dc } of ALL_DIRS) {
-        let step = 1;
-        while (canBlockMove(b, dr * step, dc * step, ball, target, gridSize, fixedSet, otherBlocksSet)) {
+        let step = 0;
+        while (
+          canBlockMove(
+            b,
+            dr * (step + 1),
+            dc * (step + 1),
+            ball,
+            target,
+            gridSize,
+            fixedSet,
+            otherBlocksSet
+          )
+        ) {
+          step++;
+        }
+
+        if (step > 0) {
           const newRow = b.row + dr * step;
           const newCol = b.col + dc * step;
           const nextBlocks = curBlocks.map((blk, idx) =>
@@ -223,7 +244,6 @@ export function solvePuzzle(
               ],
             });
           }
-          step++;
         }
       }
     }
