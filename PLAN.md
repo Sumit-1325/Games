@@ -336,29 +336,30 @@ Our own name and look for the "fill in the digits" puzzle type, so we never reus
 Our own clean name and vector design for the Capgemini "Motion Challenge" sliding-block puzzle:
 
 - **What the player sees:**
-  - A grid (5×5 on early levels, 6×6 on higher levels).
+  - A grid that increases in size with level (4×4 on Level 1, 5×5 on Level 2, 6×6 on Level 3, 7×7 on Level 4, 8×8 on Level 5+).
   - A **Red Ball** (the player piece).
   - A **Black Ball** (the fixed target destination / hole).
   - **Obstacle Bars (Blocks):**
-    - Horizontal bars (length 2 or 3): can only slide horizontally (left/right) when adjacent cells are empty.
-    - Vertical bars (length 2 or 3): can only slide vertically (up/down) when adjacent cells are empty.
+    - Horizontal bars (length 2 or 3): slide horizontally (left/right).
+    - Vertical bars (length 2 or 3): slide vertically (up/down).
     - Fixed obstacle blocks: immobile 1×1 wall blocks.
   - **Controls / Rules:**
-    - Player can move the Red Ball to an adjacent empty cell (Up/Down/Left/Right or click/drag).
-    - Player can slide any obstacle bar in its allowed orientation into adjacent free cells.
-    - Each ball move or block slide counts as 1 move.
-    - Goal: get the Red Ball onto the Black Ball target in as few moves as possible.
+    - The player moves the Red Ball in a straight line (horizontally or vertically) across empty cells until hitting an obstacle or grid edge (or target hole). **A full straight-line slide counts as ONE move.**
+    - If the player then turns to go up or in another direction, that subsequent straight line is the second move.
+    - Sliding an obstacle bar along its permitted track counts as 1 move.
+    - Goal: get the Red Ball onto the Black Ball target in the fewest straight-line moves possible.
 
 - **Levels and Difficulty:**
-  - Built-in BFS solver ensures every generated level is solvable and calculates the exact `optimalMoves`.
+  - Built-in BFS solver evaluates straight-line movement transitions, guarantees solvability, and calculates exact `optimalMoves`.
 
 | Level | Grid | Obstacle Bars | Fixed Blocks | Optimal Moves | Speed-bonus Budget |
 | --- | --- | --- | --- | --- | --- |
-| 1 | 5×5 | 2–3 bars | 0 | 3–5 | 30 s |
-| 2 | 5×5 | 3–4 bars | 0 | 5–7 | 40 s |
-| 3 | 6×6 | 4–5 bars | 1 | 6–8 | 50 s |
-| 4 | 6×6 | 5–6 bars | 2 | 8–10 | 60 s |
-| 5+ | 6×6 | 6–7 bars | 2–3 | 10–14 | 75 s |
+| 1 | 4×4 | 1–2 bars | 0 | 2–4 | 25 s |
+| 2 | 5×5 | 2–3 bars | 0 | 3–5 | 35 s |
+| 3 | 6×6 | 3–4 bars | 1 | 4–7 | 45 s |
+| 4 | 7×7 | 4–5 bars | 1–2 | 5–8 | 55 s |
+| 5 | 8×8 | 5–6 bars | 2–3 | 6–10 | 65 s |
+| 6+ | 8×8–9×9 | 5–7 bars | 2–4 | 7–12 | 75 s |
 
 - **Scoring:**
   - Solved: `level × 10` points + efficiency bonus (up to 10 extra points for solving in optimal moves) + speed bonus (up to 20%).

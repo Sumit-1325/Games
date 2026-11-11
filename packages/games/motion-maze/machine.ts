@@ -5,6 +5,8 @@
  *
  * `reduce(state, event)` has no React and no timers: the UI sends TICK(now)
  * every animation frame, and every deadline is an absolute timestamp.
+ *
+ * Moving in a straight line (horizontally or vertically) counts as ONE move.
  */
 import { attemptSeed, type Cell } from "@cogniarena/game-core";
 import {
@@ -168,22 +170,89 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
       if (phase.name !== "playing") return state;
       const dr = event.direction === "up" ? -1 : event.direction === "down" ? 1 : 0;
       const dc = event.direction === "left" ? -1 : event.direction === "right" ? 1 : 0;
-      const targetCell: Cell = { row: phase.ball.row + dr, col: phase.ball.col + dc };
 
-      return applyBallMove(state, phase, targetCell, event.direction, event.now);
+      // Slide in a straight line until hitting obstacle or grid edge (or target)
+      const { gridSize, target, fixedBlocks } = state.level;
+      const fixedSet = new Set(fixedBlocks.map((f) => `${f.row},${f.col}`));
+      const blockCells = new Set<string>();
+      phase.blocks.flatMap(getBlockCells).forEach((c) => blockCells.add(`${c.row},${c.col}`));
+
+      let curR = phase.ball.row;
+      let curC = phase.ball.col;
+      let lastFreeR = curR;
+      let lastFreeC = curC;
+
+      while (true) {
+        const nr = curR + dr;
+        const nc = curC + dc;
+        if (nr < 0 || nr >= gridSize || nc < 0 || nc >= gridSize) break;
+        const key = `${nr},${nc}`;
+        if (fixedSet.has(key) || blockCells.has(key)) break;
+
+        lastFreeR = nr;
+        lastFreeC = nc;
+        curR = nr;
+        curC = nc;
+
+        // If target hole is hit along the path, stop right in the target!
+        if (nr === target.row && nc === target.col) {
+          break;
+        }
+      }
+
+      // No movement possible
+      if (lastFreeR === phase.ball.row && lastFreeC === phase.ball.col) {
+        return state;
+      }
+
+      const destCell: Cell = { row: lastFreeR, col: lastFreeC };
+      return applyBallStraightMove(state, phase, destCell, event.direction, event.now);
     }
 
     case "MOVE_BALL_TO": {
       if (phase.name !== "playing") return state;
-      const dr = event.cell.row - phase.ball.row;
-      const dc = event.cell.col - phase.ball.col;
-      // Must be adjacent (distance 1)
-      if (Math.abs(dr) + Math.abs(dc) !== 1) return state;
+      const { gridSize, fixedBlocks } = state.level;
+      const { row: tr, col: tc } = event.cell;
 
+      // Bounds check
+      if (tr < 0 || tr >= gridSize || tc < 0 || tc >= gridSize) return state;
+
+      // Must be in straight line (same row or same col)
+      const dr = tr - phase.ball.row;
+      const dc = tc - phase.ball.col;
+      if (dr !== 0 && dc !== 0) return state; // Diagonal not permitted
+      if (dr === 0 && dc === 0) return state; // Same cell
+
+      const stepR = dr === 0 ? 0 : dr > 0 ? 1 : -1;
+      const stepC = dc === 0 ? 0 : dc > 0 ? 1 : -1;
+
+      // Direction label
       const direction: "up" | "down" | "left" | "right" =
-        dr === -1 ? "up" : dr === 1 ? "down" : dc === -1 ? "left" : "right";
+        stepR === -1 ? "up" : stepR === 1 ? "down" : stepC === -1 ? "left" : "right";
 
-      return applyBallMove(state, phase, event.cell, direction, event.now);
+      // Verify clear line of sight
+      const fixedSet = new Set(fixedBlocks.map((f) => `${f.row},${f.col}`));
+      const blockCells = new Set<string>();
+      phase.blocks.flatMap(getBlockCells).forEach((c) => blockCells.add(`${c.row},${c.col}`));
+
+      let checkR = phase.ball.row + stepR;
+      let checkC = phase.ball.col + stepC;
+      while (checkR !== tr || checkC !== tc) {
+        const key = `${checkR},${checkC}`;
+        if (fixedSet.has(key) || blockCells.has(key)) {
+          return state; // Path blocked
+        }
+        checkR += stepR;
+        checkC += stepC;
+      }
+
+      // Final cell check
+      const endKey = `${tr},${tc}`;
+      if (fixedSet.has(endKey) || blockCells.has(endKey)) {
+        return state;
+      }
+
+      return applyBallStraightMove(state, phase, event.cell, direction, event.now);
     }
 
     case "MOVE_BLOCK": {
@@ -196,7 +265,6 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
       if (b.orientation === "h" && event.direction !== "left" && event.direction !== "right") return state;
       if (b.orientation === "v" && event.direction !== "up" && event.direction !== "down") return state;
 
-      // Check obstacle collisions
       const { gridSize, target, fixedBlocks } = state.level;
       const occupiedByOtherBlocks = new Set<string>();
       for (let i = 0; i < phase.blocks.length; i++) {
@@ -328,30 +396,14 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
   }
 }
 
-function applyBallMove(
+function applyBallStraightMove(
   state: SessionState,
   phase: Extract<Phase, { name: "playing" }>,
-  targetCell: Cell,
+  destination: Cell,
   direction: "up" | "down" | "left" | "right",
   now: number
 ): SessionState {
-  const { gridSize, target, fixedBlocks } = state.level;
-
-  // Bounds check
-  if (targetCell.row < 0 || targetCell.row >= gridSize || targetCell.col < 0 || targetCell.col >= gridSize) {
-    return state;
-  }
-
-  // Fixed blocks check
-  if (fixedBlocks.some((f) => sameCell(f, targetCell))) {
-    return state;
-  }
-
-  // Sliding blocks check
-  const blockCells = phase.blocks.flatMap(getBlockCells);
-  if (blockCells.some((c) => sameCell(c, targetCell))) {
-    return state;
-  }
+  const { target } = state.level;
 
   const nextMoves = [
     ...phase.moves,
@@ -359,14 +411,14 @@ function applyBallMove(
       piece: "ball",
       direction,
       from: phase.ball,
-      to: targetCell,
+      to: destination,
     },
   ];
 
   const nextHistory = [...phase.historyStates, { ball: phase.ball, blocks: phase.blocks }];
 
   // Check if ball reached target
-  if (sameCell(targetCell, target)) {
+  if (sameCell(destination, target)) {
     const responses: MotionMazeResponses = {
       completed: true,
       moves: nextMoves,
@@ -391,7 +443,7 @@ function applyBallMove(
     ...state,
     phase: {
       ...phase,
-      ball: targetCell,
+      ball: destination,
       moves: nextMoves,
       historyStates: nextHistory,
     },
@@ -402,4 +454,3 @@ export function remainingMs(state: SessionState, now: number): number | null {
   if (state.sessionEndsAt === null) return state.durationMs;
   return Math.max(0, state.sessionEndsAt - (state.pausedAt ?? now));
 }
-

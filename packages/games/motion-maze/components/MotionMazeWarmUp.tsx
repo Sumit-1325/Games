@@ -33,16 +33,12 @@ export function MotionMazeWarmUp({
     setDemoBarRow(0);
     setDemoBall({ row: 0, col: 0 });
 
-    const t1 = setTimeout(() => setDemoBarRow(2), 1200); // slide bar down
-    const t2 = setTimeout(() => setDemoBall({ row: 0, col: 1 }), 2200); // ball right
-    const t3 = setTimeout(() => setDemoBall({ row: 0, col: 2 }), 2900); // ball right
-    const t4 = setTimeout(() => setDemoBall({ row: 0, col: 3 }), 3600); // ball right (goal)
+    const t1 = setTimeout(() => setDemoBarRow(2), 1200); // 1 move: slide bar down
+    const t2 = setTimeout(() => setDemoBall({ row: 0, col: 3 }), 2400); // 1 move: straight-line slide across to target
 
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
     };
   }, [step]);
 
@@ -75,26 +71,36 @@ export function MotionMazeWarmUp({
     if (step !== "try") return;
     const dr = dir === "up" ? -1 : dir === "down" ? 1 : 0;
     const dc = dir === "left" ? -1 : dir === "right" ? 1 : 0;
-    const nr = tryBall.row + dr;
-    const nc = tryBall.col + dc;
 
-    if (nr < 0 || nr >= 4 || nc < 0 || nc >= 4) return;
-    // Check block collision
-    if (nc === 2 && (nr === tryBarRow || nr === tryBarRow + 1)) return;
+    let nr = tryBall.row;
+    let nc = tryBall.col;
 
-    const nextBall = { row: nr, col: nc };
-    setTryBall(nextBall);
+    // Slide in straight line until blocked
+    while (true) {
+      const nextR = nr + dr;
+      const nextC = nc + dc;
+      if (nextR < 0 || nextR >= 4 || nextC < 0 || nextC >= 4) break;
+      // Block collision
+      if (nextC === 2 && (nextR === tryBarRow || nextR === tryBarRow + 1)) break;
 
-    if (sameCell(nextBall, tryTarget)) {
-      setStep("answered");
+      nr = nextR;
+      nc = nextC;
+      if (nr === tryTarget.row && nc === tryTarget.col) break;
+    }
+
+    if (nr !== tryBall.row || nc !== tryBall.col) {
+      const nextBall = { row: nr, col: nc };
+      setTryBall(nextBall);
+      if (sameCell(nextBall, tryTarget)) {
+        setStep("answered");
+      }
     }
   };
 
   const handleTryMoveBlock = (id: string, dir: "up" | "down" | "left" | "right") => {
     if (step !== "try") return;
     if (dir === "down" && tryBarRow + 2 < 4) {
-      // Check collision with ball
-      if (tryBall.col === 2 && tryBall.row === tryBarRow + 2) return;
+      if (tryBall.col === 2 && (tryBall.row === tryBarRow + 1 || tryBall.row === tryBarRow + 2)) return;
       setTryBarRow(tryBarRow + 1);
     } else if (dir === "up" && tryBarRow > 0) {
       if (tryBall.col === 2 && tryBall.row === tryBarRow - 1) return;
@@ -103,10 +109,13 @@ export function MotionMazeWarmUp({
   };
 
   const handleTryMoveBallTo = (cell: Cell) => {
-    const dr = cell.row - tryBall.row;
-    const dc = cell.col - tryBall.col;
-    if (Math.abs(dr) + Math.abs(dc) === 1) {
-      const dir = dr === -1 ? "up" : dr === 1 ? "down" : dc === -1 ? "left" : "right";
+    if (step !== "try") return;
+    // Check line of sight
+    if (cell.row === tryBall.row) {
+      const dir = cell.col > tryBall.col ? "right" : "left";
+      handleTryMoveBall(dir);
+    } else if (cell.col === tryBall.col) {
+      const dir = cell.row > tryBall.row ? "down" : "up";
       handleTryMoveBall(dir);
     }
   };
@@ -121,9 +130,12 @@ export function MotionMazeWarmUp({
       {/* Caption instruction */}
       <div className="rounded-xl bg-slate-900 border border-slate-800 p-3 w-full">
         <p className="text-sm text-zinc-200">
-          {step === "show" && "Watch: The blue obstacle slides down out of the way so the red ball can reach the target."}
-          {step === "try" && "Your turn: Slide the green bar down, then move the red ball into the black target!"}
-          {step === "answered" && "Excellent! In the real test, boards have multiple sliding bars and fixed obstacle walls."}
+          {step === "show" &&
+            "Watch: 1 move slides the blue bar down. 1 move slides the red ball across the row directly into the target! Straight-line slides count as 1 move."}
+          {step === "try" &&
+            "Your turn: Slide the green bar down, then slide the red ball into the black target in 1 straight line!"}
+          {step === "answered" &&
+            "Well done! As levels advance, grids grow from 4×4 up to 8×8 with more obstacles. Reach the target in the fewest moves!"}
         </p>
       </div>
 
@@ -167,7 +179,7 @@ export function MotionMazeWarmUp({
 
         {step === "try" && (
           <p className="text-xs text-zinc-400">
-            Click the arrows on the green bar to slide it, then tap adjacent cells to move the ball.
+            Click the arrows on the green bar to slide it, then click or swipe the ball toward the target.
           </p>
         )}
 
@@ -184,4 +196,3 @@ export function MotionMazeWarmUp({
     </div>
   );
 }
-

@@ -21,36 +21,33 @@ interface PuzzleTemplate {
   fixedBlocks?: Cell[];
 }
 
-// Curated templates for guaranteed instant fallback
+// Curated templates per grid size (4x4 to 8x8)
 const LEVEL_TEMPLATES: Record<number, PuzzleTemplate[]> = {
   1: [
     {
-      gridSize: 5,
+      gridSize: 4,
       redBall: { row: 0, col: 0 },
-      target: { row: 0, col: 4 },
+      target: { row: 3, col: 3 },
       blocks: [
         { orientation: "v", length: 2, row: 0, col: 2 },
-        { orientation: "h", length: 2, row: 3, col: 1 },
       ],
       fixedBlocks: [],
     },
     {
-      gridSize: 5,
+      gridSize: 4,
       redBall: { row: 1, col: 0 },
-      target: { row: 1, col: 4 },
+      target: { row: 1, col: 3 },
       blocks: [
         { orientation: "v", length: 2, row: 0, col: 2 },
-        { orientation: "v", length: 2, row: 2, col: 3 },
       ],
       fixedBlocks: [],
     },
     {
-      gridSize: 5,
-      redBall: { row: 0, col: 1 },
-      target: { row: 4, col: 1 },
+      gridSize: 4,
+      redBall: { row: 0, col: 0 },
+      target: { row: 2, col: 2 },
       blocks: [
-        { orientation: "h", length: 2, row: 2, col: 0 },
-        { orientation: "v", length: 2, row: 1, col: 3 },
+        { orientation: "h", length: 2, row: 1, col: 0 },
       ],
       fixedBlocks: [],
     },
@@ -63,7 +60,6 @@ const LEVEL_TEMPLATES: Record<number, PuzzleTemplate[]> = {
       blocks: [
         { orientation: "v", length: 2, row: 0, col: 2 },
         { orientation: "h", length: 2, row: 2, col: 1 },
-        { orientation: "v", length: 2, row: 2, col: 3 },
       ],
       fixedBlocks: [],
     },
@@ -73,8 +69,7 @@ const LEVEL_TEMPLATES: Record<number, PuzzleTemplate[]> = {
       target: { row: 4, col: 3 },
       blocks: [
         { orientation: "h", length: 2, row: 1, col: 0 },
-        { orientation: "v", length: 2, row: 1, col: 2 },
-        { orientation: "h", length: 2, row: 3, col: 2 },
+        { orientation: "v", length: 2, row: 1, col: 3 },
       ],
       fixedBlocks: [],
     },
@@ -87,8 +82,7 @@ const LEVEL_TEMPLATES: Record<number, PuzzleTemplate[]> = {
       blocks: [
         { orientation: "v", length: 2, row: 0, col: 2 },
         { orientation: "h", length: 2, row: 2, col: 0 },
-        { orientation: "v", length: 3, row: 1, col: 3 },
-        { orientation: "h", length: 2, row: 4, col: 2 },
+        { orientation: "v", length: 3, row: 1, col: 4 },
       ],
       fixedBlocks: [{ row: 3, col: 1 }],
     },
@@ -99,7 +93,6 @@ const LEVEL_TEMPLATES: Record<number, PuzzleTemplate[]> = {
       blocks: [
         { orientation: "h", length: 2, row: 1, col: 1 },
         { orientation: "v", length: 2, row: 2, col: 2 },
-        { orientation: "v", length: 2, row: 1, col: 4 },
         { orientation: "h", length: 3, row: 4, col: 1 },
       ],
       fixedBlocks: [{ row: 2, col: 0 }],
@@ -107,38 +100,36 @@ const LEVEL_TEMPLATES: Record<number, PuzzleTemplate[]> = {
   ],
   4: [
     {
-      gridSize: 6,
+      gridSize: 7,
       redBall: { row: 0, col: 0 },
-      target: { row: 5, col: 5 },
+      target: { row: 6, col: 6 },
       blocks: [
-        { orientation: "v", length: 2, row: 0, col: 2 },
-        { orientation: "h", length: 2, row: 2, col: 1 },
-        { orientation: "v", length: 2, row: 1, col: 4 },
-        { orientation: "h", length: 3, row: 3, col: 2 },
-        { orientation: "v", length: 2, row: 3, col: 0 },
+        { orientation: "v", length: 2, row: 0, col: 3 },
+        { orientation: "h", length: 3, row: 3, col: 1 },
+        { orientation: "v", length: 2, row: 2, col: 5 },
+        { orientation: "h", length: 2, row: 5, col: 3 },
       ],
       fixedBlocks: [
-        { row: 1, col: 1 },
+        { row: 1, col: 2 },
         { row: 4, col: 4 },
       ],
     },
   ],
   5: [
     {
-      gridSize: 6,
+      gridSize: 8,
       redBall: { row: 0, col: 0 },
-      target: { row: 5, col: 4 },
+      target: { row: 7, col: 7 },
       blocks: [
-        { orientation: "v", length: 2, row: 0, col: 1 },
-        { orientation: "h", length: 2, row: 1, col: 2 },
-        { orientation: "v", length: 3, row: 1, col: 4 },
-        { orientation: "h", length: 2, row: 3, col: 0 },
-        { orientation: "v", length: 2, row: 2, col: 2 },
-        { orientation: "h", length: 2, row: 4, col: 2 },
+        { orientation: "v", length: 3, row: 0, col: 2 },
+        { orientation: "h", length: 3, row: 2, col: 3 },
+        { orientation: "v", length: 3, row: 3, col: 6 },
+        { orientation: "h", length: 3, row: 5, col: 1 },
+        { orientation: "v", length: 2, row: 4, col: 4 },
       ],
       fixedBlocks: [
-        { row: 0, col: 3 },
-        { row: 5, col: 1 },
+        { row: 1, col: 5 },
+        { row: 6, col: 2 },
       ],
     },
   ],
@@ -223,7 +214,7 @@ function tryProcedural(gridSize: number, spec: ReturnType<typeof getLevelSpec>, 
 
   for (let bi = 0; bi < barsCount; bi++) {
     const orientation: "h" | "v" = rng.chance(0.5) ? "h" : "v";
-    const length = rng.chance(0.7) ? 2 : 3;
+    const length = rng.chance(0.6) ? 2 : 3;
 
     for (let attempt = 0; attempt < 20; attempt++) {
       const maxR = orientation === "v" ? gridSize - length : gridSize - 1;
@@ -249,8 +240,8 @@ function tryProcedural(gridSize: number, spec: ReturnType<typeof getLevelSpec>, 
     }
   }
 
-  // Verify solvability & optimal moves
-  const solved = solvePuzzle(gridSize, redBall, target, blocks, fixedBlocks, 15000);
+  // Verify solvability & optimal moves with straight-line solver
+  const solved = solvePuzzle(gridSize, redBall, target, blocks, fixedBlocks, 20000);
   if (!solved || !solved.solvable) return null;
 
   const [minMoves, maxMoves] = spec.targetMoves;
@@ -259,7 +250,7 @@ function tryProcedural(gridSize: number, spec: ReturnType<typeof getLevelSpec>, 
   }
 
   return {
-    level: 1, // overwritten by caller
+    level: 1,
     gridSize,
     redBall,
     target,
@@ -300,9 +291,9 @@ export function generateLevel(seed: string, level: number, config: MotionMazeCon
 
   const fixedBlocks: FixedBlock[] = transformed.fixedBlocks ?? [];
 
-  // Recalculate optimal moves for the transformed template
+  // Recalculate optimal moves using straight-line solver
   const solved = solvePuzzle(transformed.gridSize, transformed.redBall, transformed.target, blocks, fixedBlocks);
-  const optimalMoves = solved?.optimalMoves ?? 5;
+  const optimalMoves = solved?.optimalMoves ?? 3;
 
   return {
     level,
@@ -314,4 +305,3 @@ export function generateLevel(seed: string, level: number, config: MotionMazeCon
     optimalMoves,
   };
 }
-
