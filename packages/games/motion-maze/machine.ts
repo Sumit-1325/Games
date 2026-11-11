@@ -6,8 +6,9 @@
  * `reduce(state, event)` has no React and no timers: the UI sends TICK(now)
  * every animation frame, and every deadline is an absolute timestamp.
  *
- * Both the red ball and obstacle blocks slide in straight lines until blocked,
- * and every slide counts as ONE move.
+ * Both the red ball and obstacle blocks can be smoothly dragged and placed
+ * at any valid cell in a straight line (including intermediate cells or all the way),
+ * with each placement counting as ONE move.
  */
 import { attemptSeed, type Cell } from "@cogniarena/game-core";
 import {
@@ -63,6 +64,7 @@ export type SessionEvent =
   | { type: "MOVE_BALL"; direction: "up" | "down" | "left" | "right"; now: number }
   | { type: "MOVE_BALL_TO"; cell: Cell; now: number }
   | { type: "MOVE_BLOCK"; id: string; direction: "up" | "down" | "left" | "right"; now: number }
+  | { type: "MOVE_BLOCK_TO"; id: string; to: Cell; now: number }
   | { type: "UNDO" }
   | { type: "RESET_LEVEL" }
   | { type: "SUBMIT"; now: number }
@@ -267,7 +269,6 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
       const dr = event.direction === "up" ? -1 : event.direction === "down" ? 1 : 0;
       const dc = event.direction === "left" ? -1 : event.direction === "right" ? 1 : 0;
 
-      // Obstacle slides in the straight line as far as possible until blocked (like the ball)
       let step = 0;
       while (
         canBlockMove(
@@ -284,7 +285,7 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
         step++;
       }
 
-      if (step === 0) return state; // Blocked, cannot slide
+      if (step === 0) return state;
 
       const newRow = b.row + dr * step;
       const newCol = b.col + dc * step;
@@ -300,7 +301,73 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
         to: { row: newRow, col: newCol },
       };
 
-      // Moving the obstacle counts as ONE move in moves array
+      return {
+        ...state,
+        phase: {
+          ...phase,
+          blocks: nextBlocks,
+          moves: [...phase.moves, moveRecord],
+          historyStates: [...phase.historyStates, { ball: phase.ball, blocks: phase.blocks }],
+        },
+      };
+    }
+
+    case "MOVE_BLOCK_TO": {
+      if (phase.name !== "playing") return state;
+      const blockIndex = phase.blocks.findIndex((b) => b.id === event.id);
+      if (blockIndex === -1) return state;
+      const b = phase.blocks[blockIndex]!;
+
+      const dr = event.to.row - b.row;
+      const dc = event.to.col - b.col;
+      if (dr !== 0 && dc !== 0) return state; // Diagonal not permitted
+      if (dr === 0 && dc === 0) return state; // Same position
+
+      const stepR = dr === 0 ? 0 : dr > 0 ? 1 : -1;
+      const stepC = dc === 0 ? 0 : dc > 0 ? 1 : -1;
+      const totalSteps = Math.max(Math.abs(dr), Math.abs(dc));
+
+      const { gridSize, target, fixedBlocks } = state.level;
+      const otherBlocksSet = new Set<string>();
+      for (let i = 0; i < phase.blocks.length; i++) {
+        if (i !== blockIndex) {
+          getBlockCells(phase.blocks[i]!).forEach((c) => otherBlocksSet.add(`${c.row},${c.col}`));
+        }
+      }
+      const fixedSet = new Set(fixedBlocks.map((f) => `${f.row},${f.col}`));
+
+      // Verify each intermediate step along the path is clear
+      for (let s = 1; s <= totalSteps; s++) {
+        if (
+          !canBlockMove(
+            b,
+            stepR * s,
+            stepC * s,
+            phase.ball,
+            target,
+            gridSize,
+            fixedSet,
+            otherBlocksSet
+          )
+        ) {
+          return state; // Blocked
+        }
+      }
+
+      const nextBlocks = phase.blocks.map((blk, idx) =>
+        idx === blockIndex ? { ...blk, row: event.to.row, col: event.to.col } : blk
+      );
+
+      const direction: "up" | "down" | "left" | "right" =
+        stepR === -1 ? "up" : stepR === 1 ? "down" : stepC === -1 ? "left" : "right";
+
+      const moveRecord: MotionMazeMove = {
+        piece: b.id,
+        direction,
+        from: { row: b.row, col: b.col },
+        to: event.to,
+      };
+
       return {
         ...state,
         phase: {

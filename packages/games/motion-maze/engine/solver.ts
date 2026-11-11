@@ -70,8 +70,8 @@ export function canBlockMove(
 }
 
 /**
- * Solves Motion Maze where both the ball and obstacle blocks slide like a ball
- * in straight lines until blocked, and each slide counts as ONE move.
+ * Solves Motion Maze where both the ball and obstacle blocks can slide and stop
+ * at any open cell along their straight-line path, with each placement counting as ONE move.
  */
 export function solvePuzzle(
   gridSize: number,
@@ -150,26 +150,14 @@ export function solvePuzzle(
       return true;
     };
 
-    // 1. Straight-Line Ball Slide (slides until blocked or entering target)
+    // 1. Straight-Line Ball Moves:
+    // Can stop at any unobstructed cell along the ray, including intermediate stops and target
     for (const { dir, dr, dc } of ALL_DIRS) {
       let r = ball.row + dr;
       let c = ball.col + dc;
 
-      let lastR = ball.row;
-      let lastC = ball.col;
-
       while (isFreeForBall(r, c)) {
-        lastR = r;
-        lastC = c;
-        if (r === target.row && c === target.col) {
-          break;
-        }
-        r += dr;
-        c += dc;
-      }
-
-      if (lastR !== ball.row || lastC !== ball.col) {
-        const dest: Cell = { row: lastR, col: lastC };
+        const dest: Cell = { row: r, col: c };
         const key = encodeState(dest, curBlocks);
         if (!visited.has(key)) {
           visited.add(key);
@@ -187,14 +175,19 @@ export function solvePuzzle(
             ],
           });
         }
+        if (r === target.row && c === target.col) {
+          break; // Won level
+        }
+        r += dr;
+        c += dc;
       }
     }
 
-    // 2. Obstacle Block Slide (slides like a ball until blocked)
+    // 2. Obstacle Block Moves:
+    // Can stop at any unobstructed offset step along the ray (intermediate or end)
     for (let bi = 0; bi < curBlocks.length; bi++) {
       const b = curBlocks[bi]!;
 
-      // Other blocks
       const otherBlocksSet = new Set<string>();
       for (let j = 0; j < curBlocks.length; j++) {
         if (j !== bi) {
@@ -205,12 +198,12 @@ export function solvePuzzle(
       }
 
       for (const { dir, dr, dc } of ALL_DIRS) {
-        let step = 0;
+        let step = 1;
         while (
           canBlockMove(
             b,
-            dr * (step + 1),
-            dc * (step + 1),
+            dr * step,
+            dc * step,
             ball,
             target,
             gridSize,
@@ -218,10 +211,6 @@ export function solvePuzzle(
             otherBlocksSet
           )
         ) {
-          step++;
-        }
-
-        if (step > 0) {
           const newRow = b.row + dr * step;
           const newCol = b.col + dc * step;
           const nextBlocks = curBlocks.map((blk, idx) =>
@@ -244,6 +233,7 @@ export function solvePuzzle(
               ],
             });
           }
+          step++;
         }
       }
     }

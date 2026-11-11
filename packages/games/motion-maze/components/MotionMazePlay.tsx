@@ -222,6 +222,7 @@ export function MotionMazePlay(props: MotionMazePlayProps) {
               onMoveBallTo={game.moveBallTo}
               onMoveBall={game.moveBall}
               onMoveBlock={game.moveBlock}
+              onMoveBlockTo={game.moveBlockTo}
               disabled={phase.name !== "playing" || paused}
             />
           </div>

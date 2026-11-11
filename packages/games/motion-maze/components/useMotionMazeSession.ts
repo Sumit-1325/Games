@@ -44,6 +44,10 @@ export function useMotionMazeSession(options: SessionOptions) {
         dispatch({ type: "MOVE_BLOCK", id, direction, now: at() }),
       []
     ),
+    moveBlockTo: useCallback(
+      (id: string, to: Cell) => dispatch({ type: "MOVE_BLOCK_TO", id, to, now: at() }),
+      []
+    ),
     undo: useCallback(() => dispatch({ type: "UNDO" }), []),
     resetLevel: useCallback(() => dispatch({ type: "RESET_LEVEL" }), []),
     submit: useCallback(() => dispatch({ type: "SUBMIT", now: at() }), []),

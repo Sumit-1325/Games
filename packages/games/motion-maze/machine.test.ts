@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { COUNTDOWN_MS, FEEDBACK_MS, createSession, reduce } from "./machine";
 
-describe("Motion Maze machine (Straight-Line Slides & Block Sliding)", () => {
+describe("Motion Maze machine (Straight-Line Slides & Drag Placements)", () => {
   it("starts in idle, transitions through countdown to playing", () => {
     let s = createSession({ seed: "test-seed", durationMs: 60000 });
     expect(s.phase.name).toBe("idle");
@@ -48,35 +48,37 @@ describe("Motion Maze machine (Straight-Line Slides & Block Sliding)", () => {
     }
   });
 
-  it("slides obstacle blocks like a ball until blocked and counts each slide as a move", () => {
+  it("places ball and obstacles at intermediate cells between both ends in 1 move", () => {
     let s = createSession({ seed: "test-seed", durationMs: null });
     s = reduce(s, { type: "START", now: 1000 });
     s = reduce(s, { type: "TICK", now: 1000 + COUNTDOWN_MS });
 
     if (s.phase.name === "playing") {
-      const block = { id: "b1", orientation: "v" as const, length: 2, row: 0, col: 2, color: "#3b82f6" };
+      // 5x5 board, ball at (0, 0), block at (1, 3)
+      const block = { id: "b1", orientation: "v" as const, length: 2, row: 1, col: 3, color: "#3b82f6" };
       s = {
         ...s,
-        level: { ...s.level, blocks: [block], fixedBlocks: [], target: { row: 3, col: 3 } },
+        level: { ...s.level, blocks: [block], fixedBlocks: [], target: { row: 4, col: 4 } },
         phase: {
           ...s.phase,
-          ball: { row: 3, col: 0 },
+          ball: { row: 0, col: 0 },
           blocks: [block],
         },
       };
 
-      // Slide vertical block LEFT all the way to col 0 in 1 move
-      s = reduce(s, { type: "MOVE_BLOCK", id: "b1", direction: "left", now: 5000 });
+      // Move ball to intermediate cell (0, 2) - not to the very end
+      s = reduce(s, { type: "MOVE_BALL_TO", cell: { row: 0, col: 2 }, now: 5000 });
       if (s.phase.name === "playing") {
-        expect(s.phase.blocks[0]!.col).toBe(0);
+        expect(s.phase.ball).toEqual({ row: 0, col: 2 });
         expect(s.phase.moves.length).toBe(1);
+      }
 
-        // Slide vertical block BACKWARD (right) all the way to col 3 in 1 move
-        s = reduce(s, { type: "MOVE_BLOCK", id: "b1", direction: "right", now: 6000 });
-        if (s.phase.name === "playing") {
-          expect(s.phase.blocks[0]!.col).toBe(s.level.gridSize - 1);
-          expect(s.phase.moves.length).toBe(2);
-        }
+      // Move block b1 left by 1 cell to intermediate col 2 (from col 3)
+      s = reduce(s, { type: "MOVE_BLOCK_TO", id: "b1", to: { row: 1, col: 2 }, now: 6000 });
+      if (s.phase.name === "playing") {
+        expect(s.phase.blocks[0]!.row).toBe(1);
+        expect(s.phase.blocks[0]!.col).toBe(2);
+        expect(s.phase.moves.length).toBe(2);
       }
     }
   });

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Cell } from "@cogniarena/game-core";
-import { getBlockCells, sameCell } from "../engine/solver";
+import { canBlockMove, getBlockCells, sameCell } from "../engine/solver";
 import type { Block, FixedBlock } from "../engine/types";
 
 export interface BoardViewProps {
@@ -14,7 +14,20 @@ export interface BoardViewProps {
   onMoveBallTo?: (cell: Cell) => void;
   onMoveBall?: (direction: "up" | "down" | "left" | "right") => void;
   onMoveBlock?: (id: string, direction: "up" | "down" | "left" | "right") => void;
+  onMoveBlockTo?: (id: string, to: Cell) => void;
   disabled?: boolean;
+}
+
+interface DragState {
+  id: "ball" | string;
+  startX: number;
+  startY: number;
+  initialR: number;
+  initialC: number;
+  targetR: number;
+  targetC: number;
+  visualDx: number;
+  visualDy: number;
 }
 
 export function BoardView({
@@ -26,18 +39,14 @@ export function BoardView({
   onMoveBallTo,
   onMoveBall,
   onMoveBlock,
+  onMoveBlockTo,
   disabled = false,
 }: BoardViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedPiece, setSelectedPiece] = useState<"ball" | string>("ball");
-  const [dragInfo, setDragInfo] = useState<{
-    id: string | "ball";
-    startX: number;
-    startY: number;
-    triggered: boolean;
-  } | null>(null);
+  const [drag, setDrag] = useState<DragState | null>(null);
 
-  // Keyboard navigation: controls either the red ball or currently selected obstacle
+  // Keyboard navigation for selected piece
   useEffect(() => {
     if (disabled) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -60,55 +69,19 @@ export function BoardView({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [disabled, selectedPiece, onMoveBall, onMoveBlock]);
 
-  // Pointer drag/swipe gesture: slides piece all the way in the dragged direction
-  const handlePointerDown = (id: string | "ball", e: React.PointerEvent) => {
-    if (disabled) return;
-    setSelectedPiece(id);
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-    setDragInfo({
-      id,
-      startX: e.clientX,
-      startY: e.clientY,
-      triggered: false,
-    });
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!dragInfo || dragInfo.triggered || disabled) return;
-    const dx = e.clientX - dragInfo.startX;
-    const dy = e.clientY - dragInfo.startY;
-    const threshold = 14;
-
-    if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
-      const dir: "left" | "right" | "up" | "down" =
-        Math.abs(dx) > Math.abs(dy)
-          ? dx > 0
-            ? "right"
-            : "left"
-          : dy > 0
-          ? "down"
-          : "up";
-
-      setDragInfo((prev) => (prev ? { ...prev, triggered: true } : null));
-
-      if (dragInfo.id === "ball") {
-        onMoveBall?.(dir);
-      } else {
-        onMoveBlock?.(dragInfo.id, dir);
-      }
-    }
-  };
-
-  const handlePointerUp = () => {
-    setDragInfo(null);
-  };
-
-  // Precompute set of obstacle cells
+  // Precompute spatial lookups
   const blockCells = new Set<string>();
   blocks.flatMap(getBlockCells).forEach((c) => blockCells.add(`${c.row},${c.col}`));
   const fixedSet = new Set(fixedBlocks.map((f) => `${f.row},${f.col}`));
 
-  // Check line of sight from the red ball
+  const isFreeForBall = (r: number, c: number): boolean => {
+    if (r < 0 || r >= gridSize || c < 0 || c >= gridSize) return false;
+    const key = `${r},${c}`;
+    if (fixedSet.has(key) || blockCells.has(key)) return false;
+    return true;
+  };
+
+  // Line of sight for ball click-to-move
   const isReachableLineOfSight = (r: number, c: number): boolean => {
     if (r === redBall.row && c === redBall.col) return false;
     if (r !== redBall.row && c !== redBall.col) return false;
@@ -129,6 +102,191 @@ export function BoardView({
     return !fixedSet.has(endKey) && !blockCells.has(endKey);
   };
 
+  // Pointer drag start
+  const handlePointerDown = (id: string | "ball", e: React.PointerEvent) => {
+    if (disabled) return;
+    setSelectedPiece(id);
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+
+    let initialR = 0;
+    let initialC = 0;
+    if (id === "ball") {
+      initialR = redBall.row;
+      initialC = redBall.col;
+    } else {
+      const b = blocks.find((blk) => blk.id === id);
+      if (!b) return;
+      initialR = b.row;
+      initialC = b.col;
+    }
+
+    setDrag({
+      id,
+      startX: e.clientX,
+      startY: e.clientY,
+      initialR,
+      initialC,
+      targetR: initialR,
+      targetC: initialC,
+      visualDx: 0,
+      visualDy: 0,
+    });
+  };
+
+  // Pointer move: dynamically calculates cell-by-cell offset and clamps at obstacles
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!drag || disabled || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const cellPx = rect.width / gridSize;
+
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+
+    // Must move at least 6px to start tracking
+    if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+
+    const isHorizontal = Math.abs(dx) >= Math.abs(dy);
+
+    if (drag.id === "ball") {
+      if (isHorizontal) {
+        const rawSteps = Math.round(dx / cellPx);
+        const dir = rawSteps >= 0 ? 1 : -1;
+        const requestedSteps = Math.abs(rawSteps);
+
+        let validSteps = 0;
+        for (let s = 1; s <= requestedSteps; s++) {
+          const nextC = drag.initialC + dir * s;
+          if (!isFreeForBall(drag.initialR, nextC)) break;
+          validSteps = s;
+          if (drag.initialR === target.row && nextC === target.col) break; // target reached
+        }
+
+        const targetC = drag.initialC + validSteps * dir;
+        setDrag((prev) =>
+          prev
+            ? {
+                ...prev,
+                targetR: drag.initialR,
+                targetC,
+                visualDx: Math.max(-cellPx * (drag.initialC - targetC), Math.min(cellPx * (targetC - drag.initialC), dx)),
+                visualDy: 0,
+              }
+            : null
+        );
+      } else {
+        const rawSteps = Math.round(dy / cellPx);
+        const dir = rawSteps >= 0 ? 1 : -1;
+        const requestedSteps = Math.abs(rawSteps);
+
+        let validSteps = 0;
+        for (let s = 1; s <= requestedSteps; s++) {
+          const nextR = drag.initialR + dir * s;
+          if (!isFreeForBall(nextR, drag.initialC)) break;
+          validSteps = s;
+          if (nextR === target.row && drag.initialC === target.col) break;
+        }
+
+        const targetR = drag.initialR + validSteps * dir;
+        setDrag((prev) =>
+          prev
+            ? {
+                ...prev,
+                targetR,
+                targetC: drag.initialC,
+                visualDx: 0,
+                visualDy: Math.max(-cellPx * (drag.initialR - targetR), Math.min(cellPx * (targetR - drag.initialR), dy)),
+              }
+            : null
+        );
+      }
+    } else {
+      // Obstacle block
+      const b = blocks.find((blk) => blk.id === drag.id);
+      if (!b) return;
+
+      const otherBlocksSet = new Set<string>();
+      for (const blk of blocks) {
+        if (blk.id !== b.id) {
+          getBlockCells(blk).forEach((c) => otherBlocksSet.add(`${c.row},${c.col}`));
+        }
+      }
+
+      if (isHorizontal) {
+        const rawSteps = Math.round(dx / cellPx);
+        const dir = rawSteps >= 0 ? 1 : -1;
+        const requestedSteps = Math.abs(rawSteps);
+
+        let validSteps = 0;
+        for (let s = 1; s <= requestedSteps; s++) {
+          if (!canBlockMove(b, 0, dir * s, redBall, target, gridSize, fixedSet, otherBlocksSet)) break;
+          validSteps = s;
+        }
+
+        const targetC = drag.initialC + validSteps * dir;
+        setDrag((prev) =>
+          prev
+            ? {
+                ...prev,
+                targetR: drag.initialR,
+                targetC,
+                visualDx: Math.max(-cellPx * (drag.initialC - targetC), Math.min(cellPx * (targetC - drag.initialC), dx)),
+                visualDy: 0,
+              }
+            : null
+        );
+      } else {
+        const rawSteps = Math.round(dy / cellPx);
+        const dir = rawSteps >= 0 ? 1 : -1;
+        const requestedSteps = Math.abs(rawSteps);
+
+        let validSteps = 0;
+        for (let s = 1; s <= requestedSteps; s++) {
+          if (!canBlockMove(b, dir * s, 0, redBall, target, gridSize, fixedSet, otherBlocksSet)) break;
+          validSteps = s;
+        }
+
+        const targetR = drag.initialR + validSteps * dir;
+        setDrag((prev) =>
+          prev
+            ? {
+                ...prev,
+                targetR,
+                targetC: drag.initialC,
+                visualDx: 0,
+                visualDy: Math.max(-cellPx * (drag.initialR - targetR), Math.min(cellPx * (targetR - drag.initialR), dy)),
+              }
+            : null
+        );
+      }
+    }
+  };
+
+  // Pointer drag release: smoothly drops piece at target cell in 1 move
+  const handlePointerUp = () => {
+    if (!drag || disabled) {
+      setDrag(null);
+      return;
+    }
+
+    if (drag.targetR !== drag.initialR || drag.targetC !== drag.initialC) {
+      if (drag.id === "ball") {
+        onMoveBallTo?.({ row: drag.targetR, col: drag.targetC });
+      } else {
+        if (onMoveBlockTo) {
+          onMoveBlockTo(drag.id, { row: drag.targetR, col: drag.targetC });
+        } else {
+          // Fallback
+          const dr = drag.targetR - drag.initialR;
+          const dc = drag.targetC - drag.initialC;
+          const dir = dr < 0 ? "up" : dr > 0 ? "down" : dc < 0 ? "left" : "right";
+          onMoveBlock?.(drag.id, dir);
+        }
+      }
+    }
+
+    setDrag(null);
+  };
+
   const gapClass = gridSize >= 7 ? "gap-1" : "gap-1.5 sm:gap-2";
   const paddingClass = gridSize >= 7 ? "p-1.5 sm:p-2" : "p-2 sm:p-3";
 
@@ -139,7 +297,7 @@ export function BoardView({
       className={`relative w-full max-w-[440px] aspect-square mx-auto ${paddingClass} rounded-2xl bg-slate-900/90 dark:bg-zinc-950 border border-slate-700/60 shadow-2xl select-none touch-none`}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerCancel={() => setDragInfo(null)}
+      onPointerCancel={() => setDrag(null)}
     >
       {/* Background Grid Cells */}
       <div
@@ -153,14 +311,23 @@ export function BoardView({
           Array.from({ length: gridSize }).map((_, c) => {
             const isTarget = sameCell({ row: r, col: c }, target);
             const isFixed = fixedSet.has(`${r},${c}`);
-            const canTap = !disabled && isReachableLineOfSight(r, c);
+            const canTap = !disabled && !drag && isReachableLineOfSight(r, c);
+            const isDropTarget =
+              drag &&
+              (drag.id === "ball"
+                ? r === drag.targetR && c === drag.targetC
+                : blocks.some((b) => {
+                    if (b.id !== drag.id) return false;
+                    const testBlock = { ...b, row: drag.targetR, col: drag.targetC };
+                    return getBlockCells(testBlock).some((cell) => cell.row === r && cell.col === c);
+                  }));
 
             return (
               <div
                 key={`cell-${r}-${c}`}
                 onClick={() => {
-                  setSelectedPiece("ball");
                   if (canTap && onMoveBallTo) {
+                    setSelectedPiece("ball");
                     onMoveBallTo({ row: r, col: c });
                   }
                 }}
@@ -169,6 +336,8 @@ export function BoardView({
                     ? "bg-zinc-800 border border-zinc-700/70 shadow-inner"
                     : isTarget
                     ? "bg-zinc-900 border-2 border-dashed border-red-500/50"
+                    : isDropTarget
+                    ? "bg-indigo-900/40 border-2 border-indigo-400 shadow-md scale-[1.02]"
                     : canTap
                     ? "bg-slate-800/80 border border-indigo-500/30 cursor-pointer hover:bg-indigo-900/40"
                     : "bg-slate-800/40 border border-slate-700/30"
@@ -194,8 +363,8 @@ export function BoardView({
                   </div>
                 )}
 
-                {/* Path Dot Indicator */}
-                {canTap && !isTarget && (
+                {/* Line of sight indicator */}
+                {canTap && !isTarget && !isDropTarget && (
                   <div className="w-1.5 h-1.5 rounded-full bg-indigo-400/40 pointer-events-none" />
                 )}
               </div>
@@ -207,12 +376,16 @@ export function BoardView({
       {/* Floating Elements Layer: Obstacle Blocks & Red Ball */}
       <div className="absolute inset-0 p-3 sm:p-4 pointer-events-none">
         <div className="relative w-full h-full">
-          {/* Obstacle Blocks (Slide seamlessly on drag/swipe without arrow clutter) */}
+          {/* Obstacle Blocks */}
           {blocks.map((b) => {
+            const isBeingDragged = drag?.id === b.id;
+            const displayRow = isBeingDragged ? drag.targetR : b.row;
+            const displayCol = isBeingDragged ? drag.targetC : b.col;
+
             const widthPct = b.orientation === "h" ? (b.length / gridSize) * 100 : (1 / gridSize) * 100;
             const heightPct = b.orientation === "v" ? (b.length / gridSize) * 100 : (1 / gridSize) * 100;
-            const leftPct = (b.col / gridSize) * 100;
-            const topPct = (b.row / gridSize) * 100;
+            const leftPct = (displayCol / gridSize) * 100;
+            const topPct = (displayRow / gridSize) * 100;
 
             const insetOffset = gridSize >= 7 ? "4px" : "6px";
             const posOffset = gridSize >= 7 ? "2px" : "3px";
@@ -230,11 +403,13 @@ export function BoardView({
                   top: `calc(${topPct}% + ${posOffset})`,
                   backgroundColor: b.color,
                 }}
-                className={`absolute rounded-xl shadow-lg border pointer-events-auto cursor-grab active:cursor-grabbing transition-all duration-200 flex items-center justify-center select-none ${
+                className={`absolute rounded-xl shadow-lg border pointer-events-auto cursor-grab active:cursor-grabbing transition-all ${
+                  isBeingDragged ? "duration-75 scale-[1.03] z-20 shadow-2xl" : "duration-200"
+                } flex items-center justify-center select-none ${
                   isSelected ? "border-white ring-2 ring-white/60 shadow-xl" : "border-white/30"
                 }`}
               >
-                {/* Clean grip indicators (no arrows) */}
+                {/* Grip dots (no arrow buttons) */}
                 {b.orientation === "v" ? (
                   <div className="flex flex-col gap-1.5 items-center opacity-70 pointer-events-none">
                     <div className="w-3 h-1 rounded-full bg-white/70 shadow-sm" />
@@ -253,23 +428,33 @@ export function BoardView({
           })}
 
           {/* Red Ball */}
-          <div
-            data-tutorial="red-ball"
-            onPointerDown={(e) => handlePointerDown("ball", e)}
-            style={{
-              width: `calc(${(1 / gridSize) * 100}% - ${gridSize >= 7 ? "6px" : "10px"})`,
-              height: `calc(${(1 / gridSize) * 100}% - ${gridSize >= 7 ? "6px" : "10px"})`,
-              left: `calc(${((redBall.col + 0.5) / gridSize) * 100}% - calc(${
-                (1 / gridSize) * 50
-              }% - ${gridSize >= 7 ? "3px" : "5px"}))`,
-              top: `calc(${((redBall.row + 0.5) / gridSize) * 100}% - calc(${
-                (1 / gridSize) * 50
-              }% - ${gridSize >= 7 ? "3px" : "5px"}))`,
-            }}
-            className="absolute rounded-full pointer-events-auto cursor-grab active:cursor-grabbing transition-all duration-200 shadow-[0_4px_16px_rgba(239,68,68,0.65)] bg-gradient-to-tr from-rose-700 via-red-500 to-rose-300 border-2 border-white/70 flex items-center justify-center"
-          >
-            <div className="w-1/3 h-1/3 rounded-full bg-white/60 -mt-1 -ml-1 blur-[0.5px]" />
-          </div>
+          {(() => {
+            const isBallDragged = drag?.id === "ball";
+            const displayRow = isBallDragged ? drag.targetR : redBall.row;
+            const displayCol = isBallDragged ? drag.targetC : redBall.col;
+
+            return (
+              <div
+                data-tutorial="red-ball"
+                onPointerDown={(e) => handlePointerDown("ball", e)}
+                style={{
+                  width: `calc(${(1 / gridSize) * 100}% - ${gridSize >= 7 ? "6px" : "10px"})`,
+                  height: `calc(${(1 / gridSize) * 100}% - ${gridSize >= 7 ? "6px" : "10px"})`,
+                  left: `calc(${((displayCol + 0.5) / gridSize) * 100}% - calc(${
+                    (1 / gridSize) * 50
+                  }% - ${gridSize >= 7 ? "3px" : "5px"}))`,
+                  top: `calc(${((displayRow + 0.5) / gridSize) * 100}% - calc(${
+                    (1 / gridSize) * 50
+                  }% - ${gridSize >= 7 ? "3px" : "5px"}))`,
+                }}
+                className={`absolute rounded-full pointer-events-auto cursor-grab active:cursor-grabbing transition-all ${
+                  isBallDragged ? "duration-75 scale-110 z-30 shadow-[0_6px_24px_rgba(239,68,68,0.85)]" : "duration-200"
+                } shadow-[0_4px_16px_rgba(239,68,68,0.65)] bg-gradient-to-tr from-rose-700 via-red-500 to-rose-300 border-2 border-white/70 flex items-center justify-center`}
+              >
+                <div className="w-1/3 h-1/3 rounded-full bg-white/60 -mt-1 -ml-1 blur-[0.5px]" />
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>
