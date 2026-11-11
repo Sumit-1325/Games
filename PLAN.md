@@ -305,10 +305,10 @@ Capgemini games worth adding next, in rough order of build effort:
 | Game | What the player does | Build effort |
 | --- | --- | --- |
 | Digit Challenge → built as **Missing Digits** (see below) | Fill blanks with digits so an equation balances, each digit used at most once | Low |
+| Motion Challenge → built as **Motion Maze** (see below) | Slide blocks and navigate the red ball to the black ball target in the fewest moves | High (built with BFS solver) |
 | Switch Challenge | Work out which switch code reordered a row of shapes | Low–medium |
 | Deductive (Geo-Sudo) | Find the missing symbol in a 4×4 to 6×6 grid where each shape appears once per row and column | Medium |
 | Inductive Logical Thinking | Pick the figure that breaks the rule the others follow | Medium (needs a figure generator) |
-| Motion Challenge | Slide blocks so a ball reaches the hole in the fewest moves | High (needs a puzzle solver for "minimum moves") |
 
 ### Game design: Missing Digits (built)
 
@@ -330,6 +330,40 @@ Our own name and look for the "fill in the digits" puzzle type, so we never reus
 - **Generation:** distinct random digits and operators from the seed; keep combinations where every ÷ is exact and the answer is 0–99, the level's newest operator appears, and there's no × 1 or ÷ 1.
 - **Scoring:** solved = level × 10 points + up to 20% speed bonus within the budget; wrong = 0, and one valid answer is shown. Answers faster than 300 ms per box are flagged.
 - **Code:** `packages/games/missing-digits` (engine, `machine.ts`, components), plugged in through `apps/web/lib/registry.ts` and `apps/web/components/gameClients.tsx`.
+
+### Game design: Motion Maze (built)
+
+Our own clean name and vector design for the Capgemini "Motion Challenge" sliding-block puzzle:
+
+- **What the player sees:**
+  - A grid (5×5 on early levels, 6×6 on higher levels).
+  - A **Red Ball** (the player piece).
+  - A **Black Ball** (the fixed target destination / hole).
+  - **Obstacle Bars (Blocks):**
+    - Horizontal bars (length 2 or 3): can only slide horizontally (left/right) when adjacent cells are empty.
+    - Vertical bars (length 2 or 3): can only slide vertically (up/down) when adjacent cells are empty.
+    - Fixed obstacle blocks: immobile 1×1 wall blocks.
+  - **Controls / Rules:**
+    - Player can move the Red Ball to an adjacent empty cell (Up/Down/Left/Right or click/drag).
+    - Player can slide any obstacle bar in its allowed orientation into adjacent free cells.
+    - Each ball move or block slide counts as 1 move.
+    - Goal: get the Red Ball onto the Black Ball target in as few moves as possible.
+
+- **Levels and Difficulty:**
+  - Built-in BFS solver ensures every generated level is solvable and calculates the exact `optimalMoves`.
+
+| Level | Grid | Obstacle Bars | Fixed Blocks | Optimal Moves | Speed-bonus Budget |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 5×5 | 2–3 bars | 0 | 3–5 | 30 s |
+| 2 | 5×5 | 3–4 bars | 0 | 5–7 | 40 s |
+| 3 | 6×6 | 4–5 bars | 1 | 6–8 | 50 s |
+| 4 | 6×6 | 5–6 bars | 2 | 8–10 | 60 s |
+| 5+ | 6×6 | 6–7 bars | 2–3 | 10–14 | 75 s |
+
+- **Scoring:**
+  - Solved: `level × 10` points + efficiency bonus (up to 10 extra points for solving in optimal moves) + speed bonus (up to 20%).
+  - Pass rule: reach the Black Ball target.
+- **Code:** `packages/games/motion-maze` (engine, BFS solver, `machine.ts`, vector components), registered in `registry.ts` and `gameClients.tsx`.
 
 Game descriptions are from candidate write-ups ([PrepInsta](https://prepinsta.com/capgemini-game-based-aptitude-test/)). Later, a **Company mock test** mode can chain 4 games back to back with the real time limits, using the same session API.
 

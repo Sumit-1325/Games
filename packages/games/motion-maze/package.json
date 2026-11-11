@@ -1,0 +1,30 @@
+{
+  "name": "@cogniarena/motion-maze",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./engine": "./engine/index.ts",
+    "./components": "./components/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cogniarena/game-core": "workspace:*",
+    "@cogniarena/ui": "workspace:*",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  }
+}
+

@@ -6,6 +6,7 @@
 import type { GameEngine } from "@cogniarena/game-core";
 import { gridRecallEngine } from "@cogniarena/grid-recall";
 import { missingDigitsEngine } from "@cogniarena/missing-digits";
+import { motionMazeEngine } from "@cogniarena/motion-maze";
 
 export interface RegisteredGame {
   // Each game's generic types differ; pages only read the metadata.
@@ -35,6 +36,14 @@ export const games: Record<string, RegisteredGame> = {
     description: "Fill the empty boxes with digits 1–9 so the equation is true, using each digit only once.",
     demoBlurb:
       "Starts with a quick demo: we solve one equation for you, then you try one. Then press Start and the timer begins. Equations get longer as you pass.",
+  },
+  "motion-maze": {
+    engine: motionMazeEngine,
+    description:
+      "Slide obstacle bars out of the way and navigate the red ball to the black target hole in the fewest moves.",
+    demoBlurb:
+      "Starts with a quick demo: we slide an obstacle bar aside to reach the target, then you try one. Then press Start and the timer begins. Boards get larger with more bars and walls.",
+    hasWalkthrough: true,
   },
 };
 
