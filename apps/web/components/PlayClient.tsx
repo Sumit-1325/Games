@@ -42,7 +42,8 @@ export function PlayClient(props: { slug: string; mode: "assessment" | "practice
     (async () => {
       const start = () => api.startSession({ gameSlug: slug, mode, config, minutes });
       try {
-        // Ask for a session straight away; only sign in as a guest if the server says there's no user.
+        // Prewarm session token; returns immediately if already authenticated
+        await ensureSession();
         const s = await start().catch(async (e) => {
           if (!(e instanceof ApiClientError && e.status === 401)) throw e;
           await ensureSession();
@@ -87,7 +88,14 @@ export function PlayClient(props: { slug: string; mode: "assessment" | "practice
   }, [sessionId]);
 
   if (!demoDone) return <WarmUp onStart={() => setDemoDone(true)} startLabel="Start assessment" />;
-  if (run.status === "loading") return <p className="py-20 text-zinc-500">Starting session…</p>;
+  if (run.status === "loading") {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 py-24 text-zinc-500">
+        <div className="size-10 animate-spin rounded-full border-3 border-indigo-600 border-t-transparent" />
+        <p className="text-sm font-medium animate-pulse">Setting up game…</p>
+      </div>
+    );
+  }
   if (run.status === "blocked") {
     return (
       <div className="flex max-w-md flex-col items-center gap-4 py-16 text-center">

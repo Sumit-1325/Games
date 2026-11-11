@@ -45,7 +45,7 @@ function migrationsFolder(): string {
 }
 
 function connect(): Cached {
-  const url = process.env.DATABASE_URL;
+  const url = process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL;
   if (url) {
     const client = postgres(url, { prepare: false, max: 5 });
     return { db: drizzlePostgres(client, { schema }), pglite: null, migrated: Promise.resolve() };

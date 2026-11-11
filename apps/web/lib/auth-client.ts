@@ -19,10 +19,25 @@ export const authClient = createAuthClient({
   ],
 });
 
-/** Signs the visitor in as a guest if they have no session yet. */
-export async function ensureSession(): Promise<void> {
-  const { data } = await authClient.getSession();
-  if (data) return;
-  const res = await authClient.signIn.anonymous();
-  if (res.error) throw new Error(res.error.message ?? "Could not start a guest session");
+let inFlightEnsure: Promise<void> | null = null;
+
+/** Signs the visitor in as a guest if they have no session yet. Cached and deduped. */
+export function ensureSession(): Promise<void> {
+  // If the browser already holds a session token cookie, skip the network call.
+  if (typeof document !== "undefined" && document.cookie.includes("session_token")) {
+    return Promise.resolve();
+  }
+  if (!inFlightEnsure) {
+    inFlightEnsure = (async () => {
+      try {
+        const { data } = await authClient.getSession();
+        if (data) return;
+        const res = await authClient.signIn.anonymous();
+        if (res.error) throw new Error(res.error.message ?? "Could not start a guest session");
+      } finally {
+        inFlightEnsure = null;
+      }
+    })();
+  }
+  return inFlightEnsure;
 }
