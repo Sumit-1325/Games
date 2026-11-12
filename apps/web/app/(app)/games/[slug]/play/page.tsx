@@ -25,7 +25,7 @@ export default async function PlayPage({ params, searchParams }: { params: Promi
   }
 
   return (
-    <div className="flex flex-1 items-start justify-center pt-2">
+    <div className="flex flex-1 items-start justify-center">
       <PlayClient slug={slug} mode={mode} config={config} minutes={minutes} />
     </div>
   );

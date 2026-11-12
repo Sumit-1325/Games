@@ -244,7 +244,7 @@ export function MotionMazePlay(props: MotionMazePlayProps) {
 
       {/* Footer Controls */}
       {phase.name === "playing" && (
-        <footer data-tutorial="board-controls" className="flex flex-col items-center gap-3 w-full max-w-sm mt-2">
+        <footer data-tutorial="board-controls" className="flex flex-col items-center gap-2 w-full max-w-sm mt-1 sm:mt-2">
           {/* Action buttons: Undo & Reset */}
           <div className="flex items-center justify-center gap-3 w-full">
             <button
@@ -268,13 +268,13 @@ export function MotionMazePlay(props: MotionMazePlayProps) {
           </div>
 
           {/* Touch D-Pad for Red Ball navigation */}
-          <div className="grid grid-cols-3 gap-1.5 w-32 pt-1">
+          <div className="grid grid-cols-3 gap-1.5 w-28 sm:w-32 pt-0.5">
             <div />
             <button
               type="button"
               disabled={paused}
               onClick={() => game.moveBall("up")}
-              className="h-9 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center text-sm active:scale-95 border border-slate-700"
+              className="h-8 sm:h-9 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center text-sm active:scale-95 border border-slate-700"
               aria-label="Ball Up"
             >
               ▲
@@ -284,7 +284,7 @@ export function MotionMazePlay(props: MotionMazePlayProps) {
               type="button"
               disabled={paused}
               onClick={() => game.moveBall("left")}
-              className="h-9 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center text-sm active:scale-95 border border-slate-700"
+              className="h-8 sm:h-9 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center text-sm active:scale-95 border border-slate-700"
               aria-label="Ball Left"
             >
               ◀
@@ -293,7 +293,7 @@ export function MotionMazePlay(props: MotionMazePlayProps) {
               type="button"
               disabled={paused}
               onClick={() => game.moveBall("down")}
-              className="h-9 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center text-sm active:scale-95 border border-slate-700"
+              className="h-8 sm:h-9 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center text-sm active:scale-95 border border-slate-700"
               aria-label="Ball Down"
             >
               ▼
@@ -302,7 +302,7 @@ export function MotionMazePlay(props: MotionMazePlayProps) {
               type="button"
               disabled={paused}
               onClick={() => game.moveBall("right")}
-              className="h-9 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center text-sm active:scale-95 border border-slate-700"
+              className="h-8 sm:h-9 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center text-sm active:scale-95 border border-slate-700"
               aria-label="Ball Right"
             >
               ▶

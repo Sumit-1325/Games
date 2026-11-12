@@ -301,17 +301,21 @@ export function BoardView({
 
   return (
     <div
-      ref={containerRef}
       data-tutorial="grid"
-      style={{ aspectRatio: `${cols} / ${rows}` }}
-      className={`relative w-full max-w-[460px] mx-auto ${paddingClass} rounded-2xl bg-slate-900/90 dark:bg-zinc-950 border border-slate-700/60 shadow-2xl select-none touch-none`}
+      style={{
+        aspectRatio: `${cols} / ${rows}`,
+        width: `min(100%, calc(min(52vh, 440px) * ${cols} / ${rows}))`,
+        maxWidth: "min(440px, 92vw)",
+        maxHeight: "min(52vh, 440px)",
+      }}
+      className={`relative mx-auto ${paddingClass} rounded-2xl bg-slate-900/90 dark:bg-zinc-950 border border-slate-700/60 shadow-2xl select-none touch-none`}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={() => setDrag(null)}
     >
       {/* Background Grid Cells */}
       <div
-        className={`w-full h-full grid ${gapClass} rounded-xl p-1 bg-slate-950/60`}
+        className={`relative w-full h-full grid ${gapClass} rounded-xl p-1 bg-slate-950/60`}
         style={{
           gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
           gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
@@ -383,90 +387,90 @@ export function BoardView({
             );
           })
         )}
-      </div>
 
-      {/* Floating Elements Layer: Obstacle Blocks & Red Ball */}
-      <div className="absolute inset-0 p-3 sm:p-4 pointer-events-none">
-        <div className="relative w-full h-full">
-          {/* Obstacle Blocks */}
-          {blocks.map((b) => {
-            const isBeingDragged = drag?.id === b.id;
-            const displayRow = isBeingDragged ? drag.targetR : b.row;
-            const displayCol = isBeingDragged ? drag.targetC : b.col;
+        {/* Floating Elements Layer: Obstacle Blocks & Red Ball positioned precisely over cells */}
+        <div className="absolute inset-1 pointer-events-none">
+          <div ref={containerRef} className="relative w-full h-full">
+            {/* Obstacle Blocks */}
+            {blocks.map((b) => {
+              const isBeingDragged = drag?.id === b.id;
+              const displayRow = isBeingDragged ? drag.targetR : b.row;
+              const displayCol = isBeingDragged ? drag.targetC : b.col;
 
-            const widthPct = b.orientation === "h" ? (b.length / cols) * 100 : (1 / cols) * 100;
-            const heightPct = b.orientation === "v" ? (b.length / rows) * 100 : (1 / rows) * 100;
-            const leftPct = (displayCol / cols) * 100;
-            const topPct = (displayRow / rows) * 100;
+              const widthPct = b.orientation === "h" ? (b.length / cols) * 100 : (1 / cols) * 100;
+              const heightPct = b.orientation === "v" ? (b.length / rows) * 100 : (1 / rows) * 100;
+              const leftPct = (displayCol / cols) * 100;
+              const topPct = (displayRow / rows) * 100;
 
-            const insetOffset = maxDim >= 7 ? "4px" : "6px";
-            const posOffset = maxDim >= 7 ? "2px" : "3px";
-            const isSelected = selectedPiece === b.id;
+              const insetOffset = maxDim >= 7 ? "4px" : "6px";
+              const posOffset = maxDim >= 7 ? "2px" : "3px";
+              const isSelected = selectedPiece === b.id;
 
-            return (
-              <div
-                key={b.id}
-                data-tutorial="block-item"
-                onPointerDown={(e) => handlePointerDown(b.id, e)}
-                style={{
-                  width: `calc(${widthPct}% - ${insetOffset})`,
-                  height: `calc(${heightPct}% - ${insetOffset})`,
-                  left: `calc(${leftPct}% + ${posOffset})`,
-                  top: `calc(${topPct}% + ${posOffset})`,
-                  backgroundColor: b.color,
-                }}
-                className={`absolute rounded-xl shadow-lg border pointer-events-auto cursor-grab active:cursor-grabbing transition-all ${
-                  isBeingDragged ? "duration-75 scale-[1.03] z-20 shadow-2xl" : "duration-200"
-                } flex items-center justify-center select-none ${
-                  isSelected ? "border-white ring-2 ring-white/60 shadow-xl" : "border-white/30"
-                }`}
-              >
-                {/* Grip dots (no arrow buttons) */}
-                {b.orientation === "v" ? (
-                  <div className="flex flex-col gap-1.5 items-center opacity-70 pointer-events-none">
-                    <div className="w-3 h-1 rounded-full bg-white/70 shadow-sm" />
-                    <div className="w-3 h-1 rounded-full bg-white/70 shadow-sm" />
-                    <div className="w-3 h-1 rounded-full bg-white/70 shadow-sm" />
-                  </div>
-                ) : (
-                  <div className="flex gap-1.5 items-center opacity-70 pointer-events-none">
-                    <div className="w-1 h-3 rounded-full bg-white/70 shadow-sm" />
-                    <div className="w-1 h-3 rounded-full bg-white/70 shadow-sm" />
-                    <div className="w-1 h-3 rounded-full bg-white/70 shadow-sm" />
-                  </div>
-                )}
-              </div>
-            );
-          })}
+              return (
+                <div
+                  key={b.id}
+                  data-tutorial="block-item"
+                  onPointerDown={(e) => handlePointerDown(b.id, e)}
+                  style={{
+                    width: `calc(${widthPct}% - ${insetOffset})`,
+                    height: `calc(${heightPct}% - ${insetOffset})`,
+                    left: `calc(${leftPct}% + ${posOffset})`,
+                    top: `calc(${topPct}% + ${posOffset})`,
+                    backgroundColor: b.color,
+                  }}
+                  className={`absolute rounded-xl shadow-lg border pointer-events-auto cursor-grab active:cursor-grabbing transition-all ${
+                    isBeingDragged ? "duration-75 scale-[1.03] z-20 shadow-2xl" : "duration-200"
+                  } flex items-center justify-center select-none ${
+                    isSelected ? "border-white ring-2 ring-white/60 shadow-xl" : "border-white/30"
+                  }`}
+                >
+                  {/* Grip dots (no arrow buttons) */}
+                  {b.orientation === "v" ? (
+                    <div className="flex flex-col gap-1.5 items-center opacity-70 pointer-events-none">
+                      <div className="w-3 h-1 rounded-full bg-white/70 shadow-sm" />
+                      <div className="w-3 h-1 rounded-full bg-white/70 shadow-sm" />
+                      <div className="w-3 h-1 rounded-full bg-white/70 shadow-sm" />
+                    </div>
+                  ) : (
+                    <div className="flex gap-1.5 items-center opacity-70 pointer-events-none">
+                      <div className="w-1 h-3 rounded-full bg-white/70 shadow-sm" />
+                      <div className="w-1 h-3 rounded-full bg-white/70 shadow-sm" />
+                      <div className="w-1 h-3 rounded-full bg-white/70 shadow-sm" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
-          {/* Red Ball */}
-          {(() => {
-            const isBallDragged = drag?.id === "ball";
-            const displayRow = isBallDragged ? drag.targetR : redBall.row;
-            const displayCol = isBallDragged ? drag.targetC : redBall.col;
+            {/* Red Ball */}
+            {(() => {
+              const isBallDragged = drag?.id === "ball";
+              const displayRow = isBallDragged ? drag.targetR : redBall.row;
+              const displayCol = isBallDragged ? drag.targetC : redBall.col;
 
-            return (
-              <div
-                data-tutorial="red-ball"
-                onPointerDown={(e) => handlePointerDown("ball", e)}
-                style={{
-                  width: `calc(${(1 / cols) * 100}% - ${maxDim >= 7 ? "6px" : "10px"})`,
-                  height: `calc(${(1 / rows) * 100}% - ${maxDim >= 7 ? "6px" : "10px"})`,
-                  left: `calc(${((displayCol + 0.5) / cols) * 100}% - calc(${
-                    (1 / cols) * 50
-                  }% - ${maxDim >= 7 ? "3px" : "5px"}))`,
-                  top: `calc(${((displayRow + 0.5) / rows) * 100}% - calc(${
-                    (1 / rows) * 50
-                  }% - ${maxDim >= 7 ? "3px" : "5px"}))`,
-                }}
-                className={`absolute rounded-full pointer-events-auto cursor-grab active:cursor-grabbing transition-all ${
-                  isBallDragged ? "duration-75 scale-110 z-30 shadow-[0_6px_24px_rgba(239,68,68,0.85)]" : "duration-200"
-                } shadow-[0_4px_16px_rgba(239,68,68,0.65)] bg-gradient-to-tr from-rose-700 via-red-500 to-rose-300 border-2 border-white/70 flex items-center justify-center`}
-              >
-                <div className="w-1/3 h-1/3 rounded-full bg-white/60 -mt-1 -ml-1 blur-[0.5px]" />
-              </div>
-            );
-          })()}
+              return (
+                <div
+                  data-tutorial="red-ball"
+                  onPointerDown={(e) => handlePointerDown("ball", e)}
+                  style={{
+                    width: `calc(${(1 / cols) * 100}% - ${maxDim >= 7 ? "6px" : "10px"})`,
+                    height: `calc(${(1 / rows) * 100}% - ${maxDim >= 7 ? "6px" : "10px"})`,
+                    left: `calc(${((displayCol + 0.5) / cols) * 100}% - calc(${
+                      (1 / cols) * 50
+                    }% - ${maxDim >= 7 ? "3px" : "5px"}))`,
+                    top: `calc(${((displayRow + 0.5) / rows) * 100}% - calc(${
+                      (1 / rows) * 50
+                    }% - ${maxDim >= 7 ? "3px" : "5px"}))`,
+                  }}
+                  className={`absolute rounded-full pointer-events-auto cursor-grab active:cursor-grabbing transition-all ${
+                    isBallDragged ? "duration-75 scale-110 z-30 shadow-[0_6px_24px_rgba(239,68,68,0.85)]" : "duration-200"
+                  } shadow-[0_4px_16px_rgba(239,68,68,0.65)] bg-gradient-to-tr from-rose-700 via-red-500 to-rose-300 border-2 border-white/70 flex items-center justify-center`}
+                >
+                  <div className="w-1/3 h-1/3 rounded-full bg-white/60 -mt-1 -ml-1 blur-[0.5px]" />
+                </div>
+              );
+            })()}
+          </div>
         </div>
       </div>
     </div>
