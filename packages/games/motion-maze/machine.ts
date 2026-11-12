@@ -176,6 +176,8 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
       const dc = event.direction === "left" ? -1 : event.direction === "right" ? 1 : 0;
 
       const { gridSize, target, fixedBlocks } = state.level;
+      const rows = state.level.rows ?? gridSize;
+      const cols = state.level.cols ?? gridSize;
       const fixedSet = new Set(fixedBlocks.map((f) => `${f.row},${f.col}`));
       const blockCells = new Set<string>();
       phase.blocks.flatMap(getBlockCells).forEach((c) => blockCells.add(`${c.row},${c.col}`));
@@ -188,7 +190,7 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
       while (true) {
         const nr = curR + dr;
         const nc = curC + dc;
-        if (nr < 0 || nr >= gridSize || nc < 0 || nc >= gridSize) break;
+        if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) break;
         const key = `${nr},${nc}`;
         if (fixedSet.has(key) || blockCells.has(key)) break;
 
@@ -213,9 +215,11 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
     case "MOVE_BALL_TO": {
       if (phase.name !== "playing") return state;
       const { gridSize, fixedBlocks } = state.level;
+      const rows = state.level.rows ?? gridSize;
+      const cols = state.level.cols ?? gridSize;
       const { row: tr, col: tc } = event.cell;
 
-      if (tr < 0 || tr >= gridSize || tc < 0 || tc >= gridSize) return state;
+      if (tr < 0 || tr >= rows || tc < 0 || tc >= cols) return state;
 
       const dr = tr - phase.ball.row;
       const dc = tc - phase.ball.col;
@@ -258,6 +262,8 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
       const b = phase.blocks[blockIndex]!;
 
       const { gridSize, target, fixedBlocks } = state.level;
+      const rows = state.level.rows ?? gridSize;
+      const cols = state.level.cols ?? gridSize;
       const otherBlocksSet = new Set<string>();
       for (let i = 0; i < phase.blocks.length; i++) {
         if (i !== blockIndex) {
@@ -277,7 +283,7 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
           dc * (step + 1),
           phase.ball,
           target,
-          gridSize,
+          { rows, cols },
           fixedSet,
           otherBlocksSet
         )
@@ -328,6 +334,8 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
       const totalSteps = Math.max(Math.abs(dr), Math.abs(dc));
 
       const { gridSize, target, fixedBlocks } = state.level;
+      const rows = state.level.rows ?? gridSize;
+      const cols = state.level.cols ?? gridSize;
       const otherBlocksSet = new Set<string>();
       for (let i = 0; i < phase.blocks.length; i++) {
         if (i !== blockIndex) {
@@ -345,7 +353,7 @@ export function reduce(state: SessionState, event: SessionEvent): SessionState {
             stepC * s,
             phase.ball,
             target,
-            gridSize,
+            { rows, cols },
             fixedSet,
             otherBlocksSet
           )

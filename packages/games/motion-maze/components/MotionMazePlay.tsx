@@ -215,6 +215,8 @@ export function MotionMazePlay(props: MotionMazePlayProps) {
 
             <BoardView
               gridSize={level.gridSize}
+              rows={level.rows}
+              cols={level.cols}
               redBall={phase.name === "playing" ? phase.ball : level.target}
               target={level.target}
               blocks={phase.name === "playing" ? phase.blocks : level.blocks}

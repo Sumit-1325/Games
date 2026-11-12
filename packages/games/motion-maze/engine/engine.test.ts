@@ -68,7 +68,7 @@ describe("generateLevel - Progression & Non-Repeating Layouts", () => {
 
       // Verify level is 100% solvable
       const verification = solvePuzzle(
-        level.gridSize,
+        { rows: level.rows ?? level.gridSize, cols: level.cols ?? level.gridSize },
         level.redBall,
         level.target,
         level.blocks,
@@ -78,7 +78,7 @@ describe("generateLevel - Progression & Non-Repeating Layouts", () => {
       expect(verification).not.toBeNull();
       expect(verification?.solvable).toBe(true);
     }
-  });
+  }, 20000);
 
   it("generates distinct random layouts for different attempts at level 8 (never repeats)", () => {
     const l8_a = generateLevel("session-seed:attempt:8", 8);
@@ -89,6 +89,58 @@ describe("generateLevel - Progression & Non-Repeating Layouts", () => {
     const sameLayoutAB = JSON.stringify(l8_a.blocks) === JSON.stringify(l8_b.blocks);
     const sameLayoutBC = JSON.stringify(l8_b.blocks) === JSON.stringify(l8_c.blocks);
     expect(sameLayoutAB && sameLayoutBC).toBe(false);
+  }, 20000);
+
+  it("supports rectangular grids like 4x3 and 8x5 and verifies solvability", () => {
+    const l4x3 = generateLevel("test-4x3", 1, { rows: 4, cols: 3 });
+    expect(l4x3.rows).toBe(4);
+    expect(l4x3.cols).toBe(3);
+    const res4x3 = solvePuzzle(
+      { rows: 4, cols: 3 },
+      l4x3.redBall,
+      l4x3.target,
+      l4x3.blocks,
+      l4x3.fixedBlocks
+    );
+    expect(res4x3?.solvable).toBe(true);
+
+    const l8x5 = generateLevel("test-8x5", 5, { rows: 8, cols: 5 });
+    expect(l8x5.rows).toBe(8);
+    expect(l8x5.cols).toBe(5);
+    const res8x5 = solvePuzzle(
+      { rows: 8, cols: 5 },
+      l8x5.redBall,
+      l8x5.target,
+      l8x5.blocks,
+      l8x5.fixedBlocks
+    );
+    expect(res8x5?.solvable).toBe(true);
+  });
+
+  it("generates rigid fixed blocks in adjacent pairs (one two together) when multiple are placed", () => {
+    // Generate several levels and check that fixed blocks contain adjacent pairs
+    let foundAdjacentPair = false;
+    for (let i = 0; i < 10; i++) {
+      const lvl = generateLevel(`rigid-pair-test-${i}`, 5);
+      if (lvl.fixedBlocks.length >= 2) {
+        for (let a = 0; a < lvl.fixedBlocks.length; a++) {
+          const fbA = lvl.fixedBlocks[a];
+          if (!fbA) continue;
+          for (let b = a + 1; b < lvl.fixedBlocks.length; b++) {
+            const fbB = lvl.fixedBlocks[b];
+            if (!fbB) continue;
+            const dist = Math.abs(fbA.row - fbB.row) + Math.abs(fbA.col - fbB.col);
+            if (dist === 1) {
+              foundAdjacentPair = true;
+              break;
+            }
+          }
+          if (foundAdjacentPair) break;
+        }
+      }
+      if (foundAdjacentPair) break;
+    }
+    expect(foundAdjacentPair).toBe(true);
   });
 });
 

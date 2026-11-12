@@ -14,7 +14,9 @@ const BLOCK_COLORS = [
 ];
 
 interface PuzzleTemplate {
-  gridSize: number;
+  gridSize?: number;
+  rows?: number;
+  cols?: number;
   redBall: Cell;
   target: Cell;
   blocks: { orientation: "h" | "v"; length: number; row: number; col: number }[];
@@ -24,6 +26,15 @@ interface PuzzleTemplate {
 // Handcrafted templates for levels 1 through 8
 const LEVEL_TEMPLATES: Record<number, PuzzleTemplate[]> = {
   1: [
+    {
+      rows: 4,
+      cols: 3,
+      gridSize: 4,
+      redBall: { row: 0, col: 0 },
+      target: { row: 3, col: 2 },
+      blocks: [{ orientation: "v", length: 2, row: 1, col: 1 }],
+      fixedBlocks: [],
+    },
     {
       gridSize: 4,
       redBall: { row: 0, col: 0 },
@@ -133,6 +144,24 @@ const LEVEL_TEMPLATES: Record<number, PuzzleTemplate[]> = {
     },
   ],
   5: [
+    {
+      rows: 8,
+      cols: 5,
+      gridSize: 8,
+      redBall: { row: 0, col: 0 },
+      target: { row: 7, col: 4 },
+      blocks: [
+        { orientation: "h", length: 2, row: 2, col: 0 },
+        { orientation: "v", length: 2, row: 3, col: 2 },
+        { orientation: "h", length: 2, row: 5, col: 2 },
+      ],
+      fixedBlocks: [
+        { row: 0, col: 4 },
+        { row: 7, col: 0 },
+        { row: 4, col: 1 },
+        { row: 4, col: 2 }, // Rigid pair together!
+      ],
+    },
     {
       gridSize: 8,
       redBall: { row: 0, col: 0 },
@@ -255,16 +284,21 @@ const LEVEL_TEMPLATES: Record<number, PuzzleTemplate[]> = {
   ],
 };
 
-function transformTemplate(template: PuzzleTemplate, rng: Rng): PuzzleTemplate {
-  const { gridSize } = template;
+function transformTemplate(
+  template: PuzzleTemplate,
+  rng: Rng
+): PuzzleTemplate & { rows: number; cols: number; gridSize: number } {
+  const rows = template.rows ?? template.gridSize ?? 8;
+  const cols = template.cols ?? template.gridSize ?? 8;
+  const gridSize = Math.max(rows, cols);
   const flipH = rng.chance(0.5);
   const flipV = rng.chance(0.5);
 
   const mapCell = (c: Cell): Cell => {
     let r = c.row;
     let col = c.col;
-    if (flipH) col = gridSize - 1 - col;
-    if (flipV) r = gridSize - 1 - r;
+    if (flipH) col = cols - 1 - col;
+    if (flipV) r = rows - 1 - r;
     return { row: r, col };
   };
 
@@ -272,11 +306,11 @@ function transformTemplate(template: PuzzleTemplate, rng: Rng): PuzzleTemplate {
     let r = b.row;
     let col = b.col;
     if (b.orientation === "h") {
-      if (flipH) col = gridSize - b.length - col;
-      if (flipV) r = gridSize - 1 - r;
+      if (flipH) col = cols - b.length - col;
+      if (flipV) r = rows - 1 - r;
     } else {
-      if (flipH) col = gridSize - 1 - col;
-      if (flipV) r = gridSize - b.length - r;
+      if (flipH) col = cols - 1 - col;
+      if (flipV) r = rows - b.length - r;
     }
     return {
       orientation: b.orientation,
@@ -287,6 +321,8 @@ function transformTemplate(template: PuzzleTemplate, rng: Rng): PuzzleTemplate {
   };
 
   return {
+    rows,
+    cols,
     gridSize,
     redBall: mapCell(template.redBall),
     target: mapCell(template.target),
@@ -297,7 +333,7 @@ function transformTemplate(template: PuzzleTemplate, rng: Rng): PuzzleTemplate {
 
 /** Check if the ball can trivially solve the puzzle without moving any obstacle bars */
 function canBallSolveAlone(
-  gridSize: number,
+  grid: { rows: number; cols: number },
   redBall: Cell,
   target: Cell,
   blocks: Block[],
@@ -310,23 +346,24 @@ function canBallSolveAlone(
       allFixed.push(c);
     }
   }
-  const res = solvePuzzle(gridSize, redBall, target, [], allFixed, 500);
+  const res = solvePuzzle(grid, redBall, target, [], allFixed, 500);
   return res !== null && res.solvable;
 }
 
-/** Generate a procedural puzzle candidate */
+/** Generate a procedural puzzle candidate with rectangular dimensions & rigid block pairs */
 function tryProcedural(
-  gridSize: number,
+  rows: number,
+  cols: number,
   level: number,
   spec: ReturnType<typeof getLevelSpec>,
   rng: Rng
 ): { level: MotionMazeLevel; optimalMoves: number } | null {
   // Vary ball and target positions across the grid
   const quadrants = [
-    { ball: { r: [0, 1], c: [0, 1] }, target: { r: [gridSize - 2, gridSize - 1], c: [gridSize - 2, gridSize - 1] } },
-    { ball: { r: [0, 1], c: [gridSize - 2, gridSize - 1] }, target: { r: [gridSize - 2, gridSize - 1], c: [0, 1] } },
-    { ball: { r: [gridSize - 2, gridSize - 1], c: [0, 1] }, target: { r: [0, 1], c: [gridSize - 2, gridSize - 1] } },
-    { ball: { r: [gridSize - 2, gridSize - 1], c: [gridSize - 2, gridSize - 1] }, target: { r: [0, 1], c: [0, 1] } },
+    { ball: { r: [0, 1], c: [0, 1] }, target: { r: [rows - 2, rows - 1], c: [cols - 2, cols - 1] } },
+    { ball: { r: [0, 1], c: [cols - 2, cols - 1] }, target: { r: [rows - 2, rows - 1], c: [0, 1] } },
+    { ball: { r: [rows - 2, rows - 1], c: [0, 1] }, target: { r: [0, 1], c: [cols - 2, cols - 1] } },
+    { ball: { r: [rows - 2, rows - 1], c: [cols - 2, cols - 1] }, target: { r: [0, 1], c: [0, 1] } },
   ];
   const q = rng.pick(quadrants);
 
@@ -344,20 +381,60 @@ function tryProcedural(
   occupied.add(`${redBall.row},${redBall.col}`);
   occupied.add(`${target.row},${target.col}`);
 
-  // Place 1x1 box blocks (fixed obstacles)
+  // Place rigid blocks (fixed obstacles), with pairs (1-2 together) forming solid wall segments
   const fixedCount = rng.int(spec.fixedCount[0], spec.fixedCount[1]);
   const fixedBlocks: FixedBlock[] = [];
-  for (let i = 0; i < fixedCount; i++) {
-    for (let attempt = 0; attempt < 12; attempt++) {
-      const r = rng.int(0, gridSize - 1);
-      const c = rng.int(0, gridSize - 1);
+  let placedCount = 0;
+
+  while (placedCount < fixedCount) {
+    const remaining = fixedCount - placedCount;
+    // When remaining >= 2, 70% chance to place 2 blocks adjacent (a rigid 2-block wall)
+    const makePair = remaining >= 2 && rng.chance(0.7);
+
+    let placed = false;
+    for (let attempt = 0; attempt < 25; attempt++) {
+      const r = rng.int(0, rows - 1);
+      const c = rng.int(0, cols - 1);
       const key = `${r},${c}`;
-      if (!occupied.has(key)) {
+      if (occupied.has(key)) continue;
+
+      if (makePair) {
+        // Pick neighbor: horizontal or vertical adjacent
+        const dirs: [number, number][] = rng.shuffle([
+          [0, 1],
+          [0, -1],
+          [1, 0],
+          [-1, 0],
+        ]);
+        let neighbor: [number, number] | null = null;
+        for (const [dr, dc] of dirs) {
+          const nr = r + dr;
+          const nc = c + dc;
+          if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && !occupied.has(`${nr},${nc}`)) {
+            neighbor = [nr, nc];
+            break;
+          }
+        }
+
+        if (neighbor) {
+          occupied.add(key);
+          occupied.add(`${neighbor[0]},${neighbor[1]}`);
+          fixedBlocks.push({ row: r, col: c });
+          fixedBlocks.push({ row: neighbor[0], col: neighbor[1] });
+          placedCount += 2;
+          placed = true;
+          break;
+        }
+      } else {
         occupied.add(key);
         fixedBlocks.push({ row: r, col: c });
+        placedCount += 1;
+        placed = true;
         break;
       }
     }
+
+    if (!placed) break;
   }
 
   // Place sliding obstacle bars
@@ -367,11 +444,15 @@ function tryProcedural(
 
   for (let bi = 0; bi < barsCount; bi++) {
     const orientation: "h" | "v" = rng.chance(0.5) ? "h" : "v";
-    const length = rng.chance(0.65) ? 2 : 3;
+    let length = rng.chance(0.65) ? 2 : 3;
+    if (orientation === "v" && rows <= 3) length = 2;
+    if (orientation === "h" && cols <= 3) length = 2;
 
     for (let attempt = 0; attempt < 25; attempt++) {
-      const maxR = orientation === "v" ? gridSize - length : gridSize - 1;
-      const maxC = orientation === "h" ? gridSize - length : gridSize - 1;
+      const maxR = orientation === "v" ? rows - length : rows - 1;
+      const maxC = orientation === "h" ? cols - length : cols - 1;
+      if (maxR < 0 || maxC < 0) continue;
+
       const r = rng.int(0, maxR);
       const c = rng.int(0, maxC);
 
@@ -394,18 +475,21 @@ function tryProcedural(
   }
 
   // 1. Verify solvability (capped BFS states for fast candidate generation)
-  const solved = solvePuzzle(gridSize, redBall, target, blocks, fixedBlocks, 3500);
+  const gridDim = { rows, cols };
+  const solved = solvePuzzle(gridDim, redBall, target, blocks, fixedBlocks, 1500);
   if (!solved || !solved.solvable) return null;
 
   // 2. For Level >= 3: Enforce that the puzzle cannot be solved by the ball alone!
   // The direct path must be blocked, requiring the player to move at least 1 obstacle.
-  if (level >= 3 && canBallSolveAlone(gridSize, redBall, target, blocks, fixedBlocks)) {
+  if (level >= 3 && canBallSolveAlone(gridDim, redBall, target, blocks, fixedBlocks)) {
     return null; // Too easy!
   }
 
   const resultLevel: MotionMazeLevel = {
     level,
-    gridSize,
+    gridSize: Math.max(rows, cols),
+    rows,
+    cols,
     redBall,
     target,
     blocks,
@@ -419,14 +503,29 @@ function tryProcedural(
 export function generateLevel(seed: string, level: number, config: MotionMazeConfig = {}): MotionMazeLevel {
   const rng = createRng(seed);
   const spec = getLevelSpec(level);
-  const gridSize = config.gridSize ?? spec.gridSize;
+
+  // Determine rectangular dimensions: from config, or chosen randomly from spec.gridDimensions
+  let rows: number;
+  let cols: number;
+  if (config.rows && config.cols) {
+    rows = config.rows;
+    cols = config.cols;
+  } else if (config.gridSize) {
+    rows = config.gridSize;
+    cols = config.gridSize;
+  } else {
+    const dim = rng.pick(spec.gridDimensions);
+    rows = dim[0];
+    cols = dim[1];
+  }
+  const gridSize = Math.max(rows, cols);
 
   let bestCandidate: MotionMazeLevel | null = null;
   let bestScore = -1;
 
-  // 1. Try procedural generation up to 20 times
-  for (let i = 0; i < 20; i++) {
-    const candidate = tryProcedural(gridSize, level, spec, rng);
+  // 1. Try procedural generation up to 8 times
+  for (let i = 0; i < 8; i++) {
+    const candidate = tryProcedural(rows, cols, level, spec, rng);
     if (candidate) {
       const { level: candLevel, optimalMoves } = candidate;
 
@@ -465,12 +564,21 @@ export function generateLevel(seed: string, level: number, config: MotionMazeCon
   }));
 
   const fixedBlocks: FixedBlock[] = transformed.fixedBlocks ?? [];
-  const solved = solvePuzzle(transformed.gridSize, transformed.redBall, transformed.target, blocks, fixedBlocks);
+  const solved = solvePuzzle(
+    { rows: transformed.rows, cols: transformed.cols },
+    transformed.redBall,
+    transformed.target,
+    blocks,
+    fixedBlocks,
+    3000
+  );
   const optimalMoves = solved?.optimalMoves ?? spec.targetMoves[0];
 
   return {
     level,
     gridSize: transformed.gridSize,
+    rows: transformed.rows,
+    cols: transformed.cols,
     redBall: transformed.redBall,
     target: transformed.target,
     blocks,

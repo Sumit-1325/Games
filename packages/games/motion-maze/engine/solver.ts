@@ -45,6 +45,15 @@ function encodeState(ball: Cell, blocks: BlockPos[]): string {
   return s;
 }
 
+export type GridDimension = number | { rows: number; cols: number };
+
+export function parseGridDimensions(grid: GridDimension): { rows: number; cols: number } {
+  if (typeof grid === "number") {
+    return { rows: grid, cols: grid };
+  }
+  return { rows: grid.rows, cols: grid.cols };
+}
+
 /** Check if an entire block can move by (dr, dc) without collision */
 export function canBlockMove(
   b: { orientation: "h" | "v"; length: number; row: number; col: number },
@@ -52,14 +61,15 @@ export function canBlockMove(
   dc: number,
   ball: Cell,
   target: Cell,
-  gridSize: number,
+  grid: GridDimension,
   fixedSet: Set<string>,
   otherBlocksSet: Set<string>
 ): boolean {
+  const { rows, cols } = parseGridDimensions(grid);
   for (const c of getBlockCells(b)) {
     const nr = c.row + dr;
     const nc = c.col + dc;
-    if (nr < 0 || nr >= gridSize || nc < 0 || nc >= gridSize) return false;
+    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) return false;
     if (nr === ball.row && nc === ball.col) return false;
     if (nr === target.row && nc === target.col) return false;
     const key = `${nr},${nc}`;
@@ -74,13 +84,15 @@ export function canBlockMove(
  * Evaluates straight-line slide paths and placement steps, finding the shortest path in milliseconds.
  */
 export function solvePuzzle(
-  gridSize: number,
+  grid: GridDimension,
   redBall: Cell,
   target: Cell,
   blocks: Block[],
   fixedBlocks: FixedBlock[] = [],
   maxStates = 15000
 ): SolverResult | null {
+  const { rows, cols } = parseGridDimensions(grid);
+
   if (sameCell(redBall, target)) {
     return { solvable: true, optimalMoves: 0, path: [] };
   }
@@ -142,7 +154,7 @@ export function solvePuzzle(
     }
 
     const isFreeForBall = (r: number, c: number): boolean => {
-      if (r < 0 || r >= gridSize || c < 0 || c >= gridSize) return false;
+      if (r < 0 || r >= rows || c < 0 || c >= cols) return false;
       const key = `${r},${c}`;
       if (fixedSet.has(key)) return false;
       if (blockCellSet.has(key)) return false;
@@ -212,7 +224,7 @@ export function solvePuzzle(
             dc * (maxStep + 1),
             ball,
             target,
-            gridSize,
+            { rows, cols },
             fixedSet,
             otherBlocksSet
           )

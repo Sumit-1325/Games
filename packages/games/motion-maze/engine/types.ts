@@ -16,13 +16,17 @@ export interface Block {
 export type FixedBlock = Cell;
 
 export const motionMazeConfigSchema = z.object({
-  gridSize: z.number().int().min(4).max(8).optional(),
+  gridSize: z.number().int().min(3).max(8).optional(),
+  rows: z.number().int().min(3).max(8).optional(),
+  cols: z.number().int().min(3).max(8).optional(),
 });
 export type MotionMazeConfig = z.infer<typeof motionMazeConfigSchema>;
 
 export interface MotionMazeLevel {
   level: number;
   gridSize: number;
+  rows?: number;
+  cols?: number;
   redBall: Cell;
   target: Cell;
   blocks: Block[];

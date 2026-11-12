@@ -6,7 +6,9 @@ import { canBlockMove, getBlockCells, sameCell } from "../engine/solver";
 import type { Block, FixedBlock } from "../engine/types";
 
 export interface BoardViewProps {
-  gridSize: number;
+  gridSize?: number;
+  rows?: number;
+  cols?: number;
   redBall: Cell;
   target: Cell;
   blocks: Block[];
@@ -31,7 +33,9 @@ interface DragState {
 }
 
 export function BoardView({
-  gridSize,
+  gridSize: propGridSize,
+  rows: propRows,
+  cols: propCols,
   redBall,
   target,
   blocks,
@@ -42,6 +46,10 @@ export function BoardView({
   onMoveBlockTo,
   disabled = false,
 }: BoardViewProps) {
+  const rows = propRows ?? propGridSize ?? 8;
+  const cols = propCols ?? propGridSize ?? 8;
+  const maxDim = Math.max(rows, cols);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedPiece, setSelectedPiece] = useState<"ball" | string>("ball");
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -75,7 +83,7 @@ export function BoardView({
   const fixedSet = new Set(fixedBlocks.map((f) => `${f.row},${f.col}`));
 
   const isFreeForBall = (r: number, c: number): boolean => {
-    if (r < 0 || r >= gridSize || c < 0 || c >= gridSize) return false;
+    if (r < 0 || r >= rows || c < 0 || c >= cols) return false;
     const key = `${r},${c}`;
     if (fixedSet.has(key) || blockCells.has(key)) return false;
     return true;
@@ -137,7 +145,8 @@ export function BoardView({
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!drag || disabled || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const cellPx = rect.width / gridSize;
+    const cellPxX = rect.width / cols;
+    const cellPxY = rect.height / rows;
 
     const dx = e.clientX - drag.startX;
     const dy = e.clientY - drag.startY;
@@ -149,7 +158,7 @@ export function BoardView({
 
     if (drag.id === "ball") {
       if (isHorizontal) {
-        const rawSteps = Math.round(dx / cellPx);
+        const rawSteps = Math.round(dx / cellPxX);
         const dir = rawSteps >= 0 ? 1 : -1;
         const requestedSteps = Math.abs(rawSteps);
 
@@ -168,13 +177,13 @@ export function BoardView({
                 ...prev,
                 targetR: drag.initialR,
                 targetC,
-                visualDx: Math.max(-cellPx * (drag.initialC - targetC), Math.min(cellPx * (targetC - drag.initialC), dx)),
+                visualDx: Math.max(-cellPxX * (drag.initialC - targetC), Math.min(cellPxX * (targetC - drag.initialC), dx)),
                 visualDy: 0,
               }
             : null
         );
       } else {
-        const rawSteps = Math.round(dy / cellPx);
+        const rawSteps = Math.round(dy / cellPxY);
         const dir = rawSteps >= 0 ? 1 : -1;
         const requestedSteps = Math.abs(rawSteps);
 
@@ -194,7 +203,7 @@ export function BoardView({
                 targetR,
                 targetC: drag.initialC,
                 visualDx: 0,
-                visualDy: Math.max(-cellPx * (drag.initialR - targetR), Math.min(cellPx * (targetR - drag.initialR), dy)),
+                visualDy: Math.max(-cellPxY * (drag.initialR - targetR), Math.min(cellPxY * (targetR - drag.initialR), dy)),
               }
             : null
         );
@@ -212,13 +221,13 @@ export function BoardView({
       }
 
       if (isHorizontal) {
-        const rawSteps = Math.round(dx / cellPx);
+        const rawSteps = Math.round(dx / cellPxX);
         const dir = rawSteps >= 0 ? 1 : -1;
         const requestedSteps = Math.abs(rawSteps);
 
         let validSteps = 0;
         for (let s = 1; s <= requestedSteps; s++) {
-          if (!canBlockMove(b, 0, dir * s, redBall, target, gridSize, fixedSet, otherBlocksSet)) break;
+          if (!canBlockMove(b, 0, dir * s, redBall, target, { rows, cols }, fixedSet, otherBlocksSet)) break;
           validSteps = s;
         }
 
@@ -229,19 +238,19 @@ export function BoardView({
                 ...prev,
                 targetR: drag.initialR,
                 targetC,
-                visualDx: Math.max(-cellPx * (drag.initialC - targetC), Math.min(cellPx * (targetC - drag.initialC), dx)),
+                visualDx: Math.max(-cellPxX * (drag.initialC - targetC), Math.min(cellPxX * (targetC - drag.initialC), dx)),
                 visualDy: 0,
               }
             : null
         );
       } else {
-        const rawSteps = Math.round(dy / cellPx);
+        const rawSteps = Math.round(dy / cellPxY);
         const dir = rawSteps >= 0 ? 1 : -1;
         const requestedSteps = Math.abs(rawSteps);
 
         let validSteps = 0;
         for (let s = 1; s <= requestedSteps; s++) {
-          if (!canBlockMove(b, dir * s, 0, redBall, target, gridSize, fixedSet, otherBlocksSet)) break;
+          if (!canBlockMove(b, dir * s, 0, redBall, target, { rows, cols }, fixedSet, otherBlocksSet)) break;
           validSteps = s;
         }
 
@@ -253,7 +262,7 @@ export function BoardView({
                 targetR,
                 targetC: drag.initialC,
                 visualDx: 0,
-                visualDy: Math.max(-cellPx * (drag.initialR - targetR), Math.min(cellPx * (targetR - drag.initialR), dy)),
+                visualDy: Math.max(-cellPxY * (drag.initialR - targetR), Math.min(cellPxY * (targetR - drag.initialR), dy)),
               }
             : null
         );
@@ -287,14 +296,15 @@ export function BoardView({
     setDrag(null);
   };
 
-  const gapClass = gridSize >= 7 ? "gap-1" : "gap-1.5 sm:gap-2";
-  const paddingClass = gridSize >= 7 ? "p-1.5 sm:p-2" : "p-2 sm:p-3";
+  const gapClass = maxDim >= 7 ? "gap-1" : "gap-1.5 sm:gap-2";
+  const paddingClass = maxDim >= 7 ? "p-1.5 sm:p-2" : "p-2 sm:p-3";
 
   return (
     <div
       ref={containerRef}
       data-tutorial="grid"
-      className={`relative w-full max-w-[440px] aspect-square mx-auto ${paddingClass} rounded-2xl bg-slate-900/90 dark:bg-zinc-950 border border-slate-700/60 shadow-2xl select-none touch-none`}
+      style={{ aspectRatio: `${cols} / ${rows}` }}
+      className={`relative w-full max-w-[460px] mx-auto ${paddingClass} rounded-2xl bg-slate-900/90 dark:bg-zinc-950 border border-slate-700/60 shadow-2xl select-none touch-none`}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={() => setDrag(null)}
@@ -303,12 +313,12 @@ export function BoardView({
       <div
         className={`w-full h-full grid ${gapClass} rounded-xl p-1 bg-slate-950/60`}
         style={{
-          gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-          gridTemplateRows: `repeat(${gridSize}, minmax(0, 1fr))`,
+          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
         }}
       >
-        {Array.from({ length: gridSize }).map((_, r) =>
-          Array.from({ length: gridSize }).map((_, c) => {
+        {Array.from({ length: rows }).map((_, r) =>
+          Array.from({ length: cols }).map((_, c) => {
             const isTarget = sameCell({ row: r, col: c }, target);
             const isFixed = fixedSet.has(`${r},${c}`);
             const canTap = !disabled && !drag && isReachableLineOfSight(r, c);
@@ -384,13 +394,13 @@ export function BoardView({
             const displayRow = isBeingDragged ? drag.targetR : b.row;
             const displayCol = isBeingDragged ? drag.targetC : b.col;
 
-            const widthPct = b.orientation === "h" ? (b.length / gridSize) * 100 : (1 / gridSize) * 100;
-            const heightPct = b.orientation === "v" ? (b.length / gridSize) * 100 : (1 / gridSize) * 100;
-            const leftPct = (displayCol / gridSize) * 100;
-            const topPct = (displayRow / gridSize) * 100;
+            const widthPct = b.orientation === "h" ? (b.length / cols) * 100 : (1 / cols) * 100;
+            const heightPct = b.orientation === "v" ? (b.length / rows) * 100 : (1 / rows) * 100;
+            const leftPct = (displayCol / cols) * 100;
+            const topPct = (displayRow / rows) * 100;
 
-            const insetOffset = gridSize >= 7 ? "4px" : "6px";
-            const posOffset = gridSize >= 7 ? "2px" : "3px";
+            const insetOffset = maxDim >= 7 ? "4px" : "6px";
+            const posOffset = maxDim >= 7 ? "2px" : "3px";
             const isSelected = selectedPiece === b.id;
 
             return (
@@ -440,14 +450,14 @@ export function BoardView({
                 data-tutorial="red-ball"
                 onPointerDown={(e) => handlePointerDown("ball", e)}
                 style={{
-                  width: `calc(${(1 / gridSize) * 100}% - ${gridSize >= 7 ? "6px" : "10px"})`,
-                  height: `calc(${(1 / gridSize) * 100}% - ${gridSize >= 7 ? "6px" : "10px"})`,
-                  left: `calc(${((displayCol + 0.5) / gridSize) * 100}% - calc(${
-                    (1 / gridSize) * 50
-                  }% - ${gridSize >= 7 ? "3px" : "5px"}))`,
-                  top: `calc(${((displayRow + 0.5) / gridSize) * 100}% - calc(${
-                    (1 / gridSize) * 50
-                  }% - ${gridSize >= 7 ? "3px" : "5px"}))`,
+                  width: `calc(${(1 / cols) * 100}% - ${maxDim >= 7 ? "6px" : "10px"})`,
+                  height: `calc(${(1 / rows) * 100}% - ${maxDim >= 7 ? "6px" : "10px"})`,
+                  left: `calc(${((displayCol + 0.5) / cols) * 100}% - calc(${
+                    (1 / cols) * 50
+                  }% - ${maxDim >= 7 ? "3px" : "5px"}))`,
+                  top: `calc(${((displayRow + 0.5) / rows) * 100}% - calc(${
+                    (1 / rows) * 50
+                  }% - ${maxDim >= 7 ? "3px" : "5px"}))`,
                 }}
                 className={`absolute rounded-full pointer-events-auto cursor-grab active:cursor-grabbing transition-all ${
                   isBallDragged ? "duration-75 scale-110 z-30 shadow-[0_6px_24px_rgba(239,68,68,0.85)]" : "duration-200"
