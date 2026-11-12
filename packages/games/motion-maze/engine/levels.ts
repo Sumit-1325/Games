@@ -10,16 +10,16 @@ export interface LevelSpec {
 }
 
 /**
- * Grid dimensions, sliding bars, and rigid blocks scale progressively:
- * Level 1: 4×3, 3×4, or 4×4 grid, 1–2 bars, 0 fixed boxes, par 2–3
- * Level 2: 5×4, 4×5, or 5×5 grid, 2–3 bars, 1 fixed box, par 3–4
- * Level 3: 6×5, 5×6, or 6×6 grid, 3–4 bars, 2–3 fixed boxes (pairs), par 4–6
- * Level 4: 7×6, 6×7, or 7×7 grid, 4–5 bars, 3–4 fixed boxes (pairs), par 5–7
- * Level 5: 8×5, 5×8, 8×6, or 8×8 grid, 5–6 bars, 4–5 fixed boxes (pairs), par 6–8
- * Level 6: 8×5, 5×8, 8×6, or 8×7 grid, 6–7 bars, 5–6 fixed boxes (pairs), par 6–9
- * Level 7: 8×6, 6×8, 8×7, or 8×8 grid, 6–8 bars, 6–7 fixed boxes (pairs), par 7–10
- * Level 8: 8×5, 8×6, 8×7, or 8×8 grid, 7–9 bars, 7–8 fixed boxes (pairs), par 8–12
- * Level 9+: 8×5, 8×6, 8×7, or 8×8 grid, 7–10 bars, 8–10 fixed boxes (pairs), par 8–14
+ * Difficulty progression:
+ *
+ * Level 1: Small grid, 1–2 bars, no rigid blocks. Pure intro — learn sliding.
+ * Level 2: Slightly bigger, 2–3 bars, 1–2 rigid blocks. Must move a bar to win.
+ * Level 3: 6-area grid, 3–4 bars, 2–4 rigid blocks in pairs. Corridors narrow.
+ * Level 4: 7-area grid, 3–5 bars, 3–5 rigid blocks. Multiple bar moves needed.
+ * Level 5: 8-area grid, 4–5 bars, 4–6 rigid blocks. Serious chokepoints.
+ * Level 6: 8-area grid, 4–6 bars, 5–7 rigid blocks. Dense obstacles.
+ * Level 7: 8-area grid, 5–7 bars, 6–8 rigid blocks. Strategic sequencing.
+ * Level 8+: 8-area grid, 5–7 bars, 6–8 rigid blocks. Maximum challenge.
  */
 export const LEVEL_SPECS: Record<number, LevelSpec> = {
   1: {
@@ -53,8 +53,8 @@ export const LEVEL_SPECS: Record<number, LevelSpec> = {
       [5, 6],
       [6, 6],
     ],
-    barsCount: [2, 3],
-    fixedCount: [2, 3],
+    barsCount: [3, 4],
+    fixedCount: [2, 4],
     targetMoves: [3, 5],
     speedBudgetMs: 45000,
   },
@@ -67,9 +67,9 @@ export const LEVEL_SPECS: Record<number, LevelSpec> = {
       [6, 7],
       [7, 7],
     ],
-    barsCount: [3, 4],
-    fixedCount: [2, 4],
-    targetMoves: [3, 5],
+    barsCount: [3, 5],
+    fixedCount: [3, 5],
+    targetMoves: [4, 6],
     speedBudgetMs: 55000,
   },
   5: {
@@ -78,11 +78,12 @@ export const LEVEL_SPECS: Record<number, LevelSpec> = {
       [8, 5],
       [5, 8],
       [8, 6],
+      [6, 8],
       [8, 8],
     ],
-    barsCount: [3, 5],
-    fixedCount: [3, 4],
-    targetMoves: [4, 6],
+    barsCount: [4, 5],
+    fixedCount: [4, 6],
+    targetMoves: [4, 7],
     speedBudgetMs: 65000,
   },
   6: {
@@ -93,9 +94,9 @@ export const LEVEL_SPECS: Record<number, LevelSpec> = {
       [8, 6],
       [8, 7],
     ],
-    barsCount: [4, 5],
-    fixedCount: [3, 5],
-    targetMoves: [4, 6],
+    barsCount: [4, 6],
+    fixedCount: [5, 7],
+    targetMoves: [5, 8],
     speedBudgetMs: 75000,
   },
   7: {
@@ -106,9 +107,9 @@ export const LEVEL_SPECS: Record<number, LevelSpec> = {
       [8, 7],
       [8, 8],
     ],
-    barsCount: [4, 6],
-    fixedCount: [4, 5],
-    targetMoves: [4, 7],
+    barsCount: [5, 7],
+    fixedCount: [6, 8],
+    targetMoves: [5, 9],
     speedBudgetMs: 80000,
   },
   8: {
@@ -119,15 +120,17 @@ export const LEVEL_SPECS: Record<number, LevelSpec> = {
       [8, 7],
       [8, 8],
     ],
-    barsCount: [4, 6],
-    fixedCount: [4, 6],
-    targetMoves: [4, 8],
-    speedBudgetMs: 85000,
+    barsCount: [5, 7],
+    fixedCount: [6, 8],
+    targetMoves: [5, 10],
+    speedBudgetMs: 90000,
   },
 };
 
 export function getLevelSpec(level: number): LevelSpec {
   if (level in LEVEL_SPECS) return LEVEL_SPECS[level]!;
+  // Levels 9+ scale gradually
+  const extra = Math.floor((level - 8) / 3);
   return {
     gridSize: 8,
     gridDimensions: [
@@ -136,10 +139,10 @@ export function getLevelSpec(level: number): LevelSpec {
       [8, 7],
       [8, 8],
     ],
-    barsCount: [4, Math.min(7, 5 + Math.floor((level - 8) / 3))],
-    fixedCount: [4, Math.min(7, 5 + Math.floor((level - 8) / 3))],
-    targetMoves: [4, Math.min(10, 7 + Math.floor((level - 8) / 3))],
-    speedBudgetMs: Math.min(100000, 85000 + (level - 8) * 3000),
+    barsCount: [5, Math.min(8, 7 + extra)],
+    fixedCount: [6, Math.min(10, 8 + extra)],
+    targetMoves: [5, Math.min(12, 10 + extra)],
+    speedBudgetMs: Math.min(120000, 90000 + (level - 8) * 3000),
   };
 }
 
