@@ -70,8 +70,8 @@ export function canBlockMove(
 }
 
 /**
- * Solves Motion Maze where both the ball and obstacle blocks can slide and stop
- * at any open cell along their straight-line path, with each placement counting as ONE move.
+ * Fast BFS solver for Motion Maze.
+ * Evaluates straight-line slide paths and placement steps, finding the shortest path in milliseconds.
  */
 export function solvePuzzle(
   gridSize: number,
@@ -79,7 +79,7 @@ export function solvePuzzle(
   target: Cell,
   blocks: Block[],
   fixedBlocks: FixedBlock[] = [],
-  maxStates = 40000
+  maxStates = 15000
 ): SolverResult | null {
   if (sameCell(redBall, target)) {
     return { solvable: true, optimalMoves: 0, path: [] };
@@ -134,7 +134,6 @@ export function solvePuzzle(
       };
     }
 
-    // Build spatial lookup for block cells
     const blockCellSet = new Set<string>();
     for (const b of curBlocks) {
       for (const c of getBlockCells(b)) {
@@ -150,14 +149,26 @@ export function solvePuzzle(
       return true;
     };
 
-    // 1. Straight-Line Ball Moves:
-    // Can stop at any unobstructed cell along the ray, including intermediate stops and target
+    // 1. Ball Straight-Line Slide:
+    // Slides along direction until hitting a wall, block, or target hole
     for (const { dir, dr, dc } of ALL_DIRS) {
       let r = ball.row + dr;
       let c = ball.col + dc;
+      let lastR = ball.row;
+      let lastC = ball.col;
 
       while (isFreeForBall(r, c)) {
-        const dest: Cell = { row: r, col: c };
+        lastR = r;
+        lastC = c;
+        if (r === target.row && c === target.col) {
+          break; // Hit target hole!
+        }
+        r += dr;
+        c += dc;
+      }
+
+      if (lastR !== ball.row || lastC !== ball.col) {
+        const dest: Cell = { row: lastR, col: lastC };
         const key = encodeState(dest, curBlocks);
         if (!visited.has(key)) {
           visited.add(key);
@@ -175,16 +186,11 @@ export function solvePuzzle(
             ],
           });
         }
-        if (r === target.row && c === target.col) {
-          break; // Won level
-        }
-        r += dr;
-        c += dc;
       }
     }
 
-    // 2. Obstacle Block Moves:
-    // Can stop at any unobstructed offset step along the ray (intermediate or end)
+    // 2. Obstacle Block Slide:
+    // Slides along direction to terminal stop or single step
     for (let bi = 0; bi < curBlocks.length; bi++) {
       const b = curBlocks[bi]!;
 
@@ -198,12 +204,12 @@ export function solvePuzzle(
       }
 
       for (const { dir, dr, dc } of ALL_DIRS) {
-        let step = 1;
+        let maxStep = 0;
         while (
           canBlockMove(
             b,
-            dr * step,
-            dc * step,
+            dr * (maxStep + 1),
+            dc * (maxStep + 1),
             ball,
             target,
             gridSize,
@@ -211,8 +217,13 @@ export function solvePuzzle(
             otherBlocksSet
           )
         ) {
-          const newRow = b.row + dr * step;
-          const newCol = b.col + dc * step;
+          maxStep++;
+        }
+
+        if (maxStep > 0) {
+          // Terminal slide
+          const newRow = b.row + dr * maxStep;
+          const newCol = b.col + dc * maxStep;
           const nextBlocks = curBlocks.map((blk, idx) =>
             idx === bi ? { ...blk, row: newRow, col: newCol } : blk
           );
@@ -233,7 +244,32 @@ export function solvePuzzle(
               ],
             });
           }
-          step++;
+
+          // Single-step slide if maxStep > 1
+          if (maxStep > 1) {
+            const shortRow = b.row + dr;
+            const shortCol = b.col + dc;
+            const shortBlocks = curBlocks.map((blk, idx) =>
+              idx === bi ? { ...blk, row: shortRow, col: shortCol } : blk
+            );
+            const shortKey = encodeState(ball, shortBlocks);
+            if (!visited.has(shortKey)) {
+              visited.add(shortKey);
+              queue.push({
+                ball,
+                blocks: shortBlocks,
+                moves: [
+                  ...moves,
+                  {
+                    piece: b.id,
+                    direction: dir,
+                    from: { row: b.row, col: b.col },
+                    to: { row: shortRow, col: shortCol },
+                  },
+                ],
+              });
+            }
+          }
         }
       }
     }

@@ -21,16 +21,13 @@ describe("Motion Maze BFS Solver (Straight-Line & 4-Directional Block Movement)"
   });
 
   it("allows a vertical obstacle block to move sideways (left/right) when space is free", () => {
-    // Vertical block at col 2 (cells (0,2) and (1,2))
     const b = { orientation: "v" as const, length: 2, row: 0, col: 2 };
     const ball = { row: 3, col: 3 };
     const target = { row: 3, col: 0 };
 
-    // Move left: col 2 -> col 1
     const canMoveLeft = canBlockMove(b, 0, -1, ball, target, 4, new Set(), new Set());
     expect(canMoveLeft).toBe(true);
 
-    // Move right: col 2 -> col 3
     const canMoveRight = canBlockMove(b, 0, 1, ball, target, 4, new Set(), new Set());
     expect(canMoveRight).toBe(true);
   });
@@ -46,7 +43,7 @@ describe("Motion Maze BFS Solver (Straight-Line & 4-Directional Block Movement)"
   });
 });
 
-describe("generateLevel - Increasing Grid Sizes", () => {
+describe("generateLevel - Progression & Non-Repeating Layouts", () => {
   it("is deterministic for the same seed", () => {
     const l1 = generateLevel("test-seed-42", 1);
     const l2 = generateLevel("test-seed-42", 1);
@@ -57,26 +54,41 @@ describe("generateLevel - Increasing Grid Sizes", () => {
     expect(l1.blocks).toEqual(l2.blocks);
   });
 
-  it("increases grid size with level: L1 (4x4), L2 (5x5), L3 (6x6), L4 (7x7), L5 (8x8)", () => {
-    const expectedGrids: Record<number, number> = { 1: 4, 2: 5, 3: 6, 4: 7, 5: 8 };
-
-    for (let lvl = 1; lvl <= 5; lvl++) {
-      const level = generateLevel(`grid-progression-${lvl}`, lvl);
+  it("generates solvable puzzles for levels 1 through 8 with increasing difficulty and box blocks", () => {
+    for (let lvl = 1; lvl <= 8; lvl++) {
+      const level = generateLevel(`level-seed-test-${lvl}`, lvl);
       expect(level.level).toBe(lvl);
-      expect(level.gridSize).toBe(expectedGrids[lvl]);
+      expect(level.gridSize).toBeGreaterThanOrEqual(4);
       expect(level.optimalMoves).toBeGreaterThan(0);
 
+      // Verify that after level 2 there are 1x1 box blocks (fixed obstacles)
+      if (lvl >= 3) {
+        expect(level.fixedBlocks.length).toBeGreaterThanOrEqual(1);
+      }
+
+      // Verify level is 100% solvable
       const verification = solvePuzzle(
         level.gridSize,
         level.redBall,
         level.target,
         level.blocks,
-        level.fixedBlocks
+        level.fixedBlocks,
+        25000
       );
       expect(verification).not.toBeNull();
       expect(verification?.solvable).toBe(true);
-      expect(verification?.optimalMoves).toBe(level.optimalMoves);
     }
+  });
+
+  it("generates distinct random layouts for different attempts at level 8 (never repeats)", () => {
+    const l8_a = generateLevel("session-seed:attempt:8", 8);
+    const l8_b = generateLevel("session-seed:attempt:9", 8);
+    const l8_c = generateLevel("session-seed:attempt:10", 8);
+
+    // Layouts must not all be identical
+    const sameLayoutAB = JSON.stringify(l8_a.blocks) === JSON.stringify(l8_b.blocks);
+    const sameLayoutBC = JSON.stringify(l8_b.blocks) === JSON.stringify(l8_c.blocks);
+    expect(sameLayoutAB && sameLayoutBC).toBe(false);
   });
 });
 

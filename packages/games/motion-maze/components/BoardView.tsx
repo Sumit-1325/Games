@@ -353,13 +353,15 @@ export function BoardView({
                   </div>
                 )}
 
-                {/* Fixed Wall Texture */}
+                {/* Fixed Obstacle Box Block */}
                 {isFixed && (
                   <div
                     data-tutorial="fixed-wall"
-                    className="w-full h-full flex items-center justify-center text-zinc-600 font-bold opacity-30 select-none text-xs"
+                    className="w-full h-full rounded-lg bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 border-2 border-slate-600/90 shadow-[inset_0_1px_2px_rgba(255,255,255,0.15),0_2px_4px_rgba(0,0,0,0.5)] flex items-center justify-center select-none"
                   >
-                    ✕
+                    <div className="w-1/2 h-1/2 rounded border border-slate-500/40 bg-slate-800/80 shadow-inner flex items-center justify-center">
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-400/50" />
+                    </div>
                   </div>
                 )}
 
